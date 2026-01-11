@@ -39,34 +39,26 @@
 <body>
     <div id="root"></div>
 
+    <!-- 預載入 Firebase 模組，避免 Babel 環境下的 require 錯誤 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        function initFirebase() {
-            try {
-                const firebaseConfig = window.__firebase_config ? JSON.parse(window.__firebase_config) : {};
-                const app = initializeApp(firebaseConfig);
-                const db = getFirestore(app);
-                const auth = getAuth(app);
-
-                window.FB = { 
-                    db, auth, doc, setDoc, getDoc, updateDoc, onSnapshot, 
-                    serverTimestamp, collection, signInAnonymously, 
-                    onAuthStateChanged, signInWithCustomToken 
-                };
-                window.dispatchEvent(new CustomEvent('fb-init-done'));
-            } catch (e) {
-                console.error("Firebase fail", e);
-            }
-        }
-        initFirebase();
+        // 將 Firebase 方法掛載到全域，以便 Babel 轉換後的腳本使用
+        window.FB = {
+            initializeApp, getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp,
+            getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged
+        };
+        
+        // 通知 React 開始渲染
+        window.dispatchEvent(new Event('firebase-ready'));
     </script>
 
-    <script id="react-code" type="text/babel">
+    <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
+        // --- 圖標組件 ---
         const Icon = ({ name, className = "w-5 h-5" }) => {
             const icons = {
                 plus: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>,
@@ -149,7 +141,7 @@
             const [user, setUser] = useState(null);
             const [history, setHistory] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
-            const [fbStatus, setFbStatus] = useState('waiting'); // waiting, ready, error
+            const [firebaseReady, setFirebaseReady] = useState(!!window.FB);
 
             const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
             const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -161,50 +153,54 @@
 
             const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'split-wise-pro-mobile';
 
-            // 初始化 Firebase 監聽
+            // --- Firebase 初始化 ---
             useEffect(() => {
-                const checkFB = () => {
-                    if (window.FB) {
-                        setFbStatus('ready');
-                        initAuth();
-                    } else {
-                        setTimeout(checkFB, 200);
+                const handleReady = async () => {
+                    const fb = window.FB;
+                    if (!fb) return;
+                    try {
+                        const config = JSON.parse(window.__firebase_config);
+                        const app = fb.initializeApp(config);
+                        const db = fb.getFirestore(app);
+                        const auth = fb.getAuth(app);
+                        
+                        if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token) {
+                            await fb.signInWithCustomToken(auth, window.__initial_auth_token);
+                        } else {
+                            await fb.signInAnonymously(auth);
+                        }
+                        fb.onAuthStateChanged(auth, setUser);
+                        setFirebaseReady(true);
+
+                        const savedHistory = localStorage.getItem(`${appId}_history`);
+                        if (savedHistory) setHistory(JSON.parse(savedHistory));
+                    } catch (e) {
+                        console.error("Firebase Init Fail", e);
                     }
                 };
-                checkFB();
 
-                const savedHistory = localStorage.getItem(`${appId}_history`);
-                if (savedHistory) setHistory(JSON.parse(savedHistory));
-
-                window.addEventListener('fb-init-done', () => setFbStatus('ready'));
-                return () => window.removeEventListener('fb-init-done', () => setFbStatus('ready'));
+                if (window.FB) {
+                    handleReady();
+                } else {
+                    window.addEventListener('firebase-ready', handleReady);
+                }
+                return () => window.removeEventListener('firebase-ready', handleReady);
             }, []);
 
-            const initAuth = async () => {
-                const { auth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } = window.FB;
-                try {
-                    if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token) {
-                        await signInWithCustomToken(auth, window.__initial_auth_token);
-                    } else if (!auth.currentUser) {
-                        await signInAnonymously(auth);
-                    }
-                    onAuthStateChanged(auth, setUser);
-                } catch (e) { console.error("Auth fail", e); }
-            };
-
-            // 數據監聽
+            // --- 數據監聽 ---
             useEffect(() => {
-                if (fbStatus !== 'ready' || !user || !roomCode || view === 'landing') return;
-                const { db, doc, onSnapshot } = window.FB;
-                const unsubscribe = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode), (snap) => {
+                const fb = window.FB;
+                if (!fb || !user || !roomCode || view === 'landing') return;
+                const db = fb.getFirestore();
+                const unsubscribe = fb.onSnapshot(fb.doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode), (snap) => {
                     if (snap.exists()) {
                         const data = snap.data();
                         setRoomData(data);
                         updateHistory(roomCode, data.name);
                     }
-                }, (err) => console.error("Sync Error:", err));
+                });
                 return () => unsubscribe();
-            }, [fbStatus, user, roomCode, view]);
+            }, [user, roomCode, view, firebaseReady]);
 
             const updateHistory = (code, name) => {
                 const newHistory = [{ code, name }, ...history.filter(h => h.code !== code)].slice(0, 5);
@@ -219,9 +215,11 @@
             };
 
             const createRoom = async () => {
-                if (isLoading || fbStatus !== 'ready' || !user) return;
+                const fb = window.FB;
+                if (isLoading || !fb || !user) return;
                 setIsLoading(true);
                 try {
+                    const db = fb.getFirestore();
                     const code = Math.floor(100000 + Math.random() * 900000).toString();
                     const mId = Date.now().toString();
                     const data = { 
@@ -229,10 +227,9 @@
                         code, 
                         members: [{ id: mId, name: firstMember || '我' }], 
                         expenses: [],
-                        createdAt: window.FB.serverTimestamp()
+                        createdAt: fb.serverTimestamp()
                     };
-                    const { db, doc, setDoc } = window.FB;
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code), data);
+                    await fb.setDoc(fb.doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code), data);
                     setRoomCode(code);
                     setView('room');
                 } catch (err) { alert("建立失敗"); }
@@ -240,11 +237,12 @@
             };
 
             const joinRoom = async (code) => {
-                if (isLoading || fbStatus !== 'ready' || !user || !code) return;
+                const fb = window.FB;
+                if (isLoading || !fb || !user || !code) return;
                 setIsLoading(true);
                 try {
-                    const { db, doc, getDoc } = window.FB;
-                    const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code));
+                    const db = fb.getFirestore();
+                    const snap = await fb.getDoc(fb.doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code));
                     if (snap.exists()) {
                         setRoomCode(code);
                         setView('room');
@@ -254,9 +252,10 @@
             };
 
             const updateDB = async (newData) => {
-                if (!user || fbStatus !== 'ready') return;
-                const { db, doc, updateDoc } = window.FB;
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode), newData);
+                const fb = window.FB;
+                if (!fb || !user) return;
+                const db = fb.getFirestore();
+                await fb.updateDoc(fb.doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode), newData);
             };
 
             const handleAddExpense = async () => {
@@ -405,7 +404,7 @@
                         </div>
 
                         <Modal isOpen={isMemberModalOpen} onClose={() => setIsMemberModalOpen(false)} title="新增小夥伴">
-                            <input autoFocus value={newMemberName} onChange={e => setNewMemberName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddMember()} placeholder="輸入名字..." className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xl text-slate-800" />
+                            <input autoFocus value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="輸入名字..." className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xl text-slate-800" />
                             <button onClick={handleAddMember} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-lg mt-5 shadow-lg">確認加入</button>
                         </Modal>
 
@@ -427,8 +426,6 @@
             }
 
             if (view === 'add-expense') {
-                const totalCustom = Object.values(newExp.customAmounts).reduce((a, b) => a + (parseFloat(b) || 0), 0);
-                const diff = (parseFloat(newExp.amount) || 0) - totalCustom;
                 return (
                     <div className="h-full flex flex-col bg-[#F8FAFC]">
                         <header className="shrink-0 flex items-center gap-4 p-6"><button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">記一筆帳</h2></header>
