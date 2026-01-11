@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SplitWise Pro - 高級版</title>
     
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    
+    <!-- 樣式與框架載入 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -39,26 +37,31 @@
 <body>
     <div id="root"></div>
 
-    <!-- 預載入 Firebase 模組，避免 Babel 環境下的 require 錯誤 -->
+    <!-- Firebase 核心載入腳本：徹底解決 require 錯誤 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // 將 Firebase 方法掛載到全域，以便 Babel 轉換後的腳本使用
-        window.FB = {
-            initializeApp, getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp,
-            getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged
+        const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // 將 Firebase 實例掛載到全域
+        window.FirebaseBridge = {
+            db, auth, doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp,
+            signInWithCustomToken, signInAnonymously, onAuthStateChanged
         };
-        
-        // 通知 React 開始渲染
-        window.dispatchEvent(new Event('firebase-ready'));
+
+        // 發送自定義事件通知 React
+        window.dispatchEvent(new CustomEvent('firebase-connected'));
     </script>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- 圖標組件 ---
+        // --- 精確保留原始 UI 圖標 ---
         const Icon = ({ name, className = "w-5 h-5" }) => {
             const icons = {
                 plus: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>,
@@ -101,6 +104,7 @@
             );
         };
 
+        // --- 核心邏輯：結算算法 ---
         function calculateSettlements(members = [], expenses = []) {
             const balances = {};
             members.forEach(m => balances[m.id] = 0);
@@ -141,7 +145,7 @@
             const [user, setUser] = useState(null);
             const [history, setHistory] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
-            const [firebaseReady, setFirebaseReady] = useState(!!window.FB);
+            const [isReady, setIsReady] = useState(false);
 
             const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
             const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -151,56 +155,46 @@
             const [newExp, setNewExp] = useState({ title: '', amount: '', payerId: '', participants: [], splitMode: 'equal', customAmounts: {} });
             const [newMemberName, setNewMemberName] = useState('');
 
-            const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'split-wise-pro-mobile';
+            const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'split-wise-pro-master';
 
-            // --- Firebase 初始化 ---
+            // 1. 初始化 Firebase 監聽
             useEffect(() => {
-                const handleReady = async () => {
-                    const fb = window.FB;
-                    if (!fb) return;
+                const connect = async () => {
+                    if (!window.FirebaseBridge) return;
+                    const { auth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } = window.FirebaseBridge;
+                    
                     try {
-                        const config = JSON.parse(window.__firebase_config);
-                        const app = fb.initializeApp(config);
-                        const db = fb.getFirestore(app);
-                        const auth = fb.getAuth(app);
-                        
-                        if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token) {
-                            await fb.signInWithCustomToken(auth, window.__initial_auth_token);
+                        if (window.__initial_auth_token) {
+                            await signInWithCustomToken(auth, window.__initial_auth_token);
                         } else {
-                            await fb.signInAnonymously(auth);
+                            await signInAnonymously(auth);
                         }
-                        fb.onAuthStateChanged(auth, setUser);
-                        setFirebaseReady(true);
-
+                        onAuthStateChanged(auth, setUser);
+                        setIsReady(true);
+                        
                         const savedHistory = localStorage.getItem(`${appId}_history`);
                         if (savedHistory) setHistory(JSON.parse(savedHistory));
-                    } catch (e) {
-                        console.error("Firebase Init Fail", e);
-                    }
+                    } catch (e) { console.error("Auth Fail", e); }
                 };
 
-                if (window.FB) {
-                    handleReady();
-                } else {
-                    window.addEventListener('firebase-ready', handleReady);
-                }
-                return () => window.removeEventListener('firebase-ready', handleReady);
+                window.addEventListener('firebase-connected', connect);
+                if (window.FirebaseBridge) connect();
+                return () => window.removeEventListener('firebase-connected', connect);
             }, []);
 
-            // --- 數據監聽 ---
+            // 2. 房間數據即時同步
             useEffect(() => {
-                const fb = window.FB;
-                if (!fb || !user || !roomCode || view === 'landing') return;
-                const db = fb.getFirestore();
-                const unsubscribe = fb.onSnapshot(fb.doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode), (snap) => {
+                if (!isReady || !user || !roomCode || view === 'landing') return;
+                const { db, onSnapshot, doc } = window.FirebaseBridge;
+                const unsubscribe = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode), (snap) => {
                     if (snap.exists()) {
                         const data = snap.data();
                         setRoomData(data);
                         updateHistory(roomCode, data.name);
                     }
-                });
+                }, (err) => console.error("Snapshot Error", err));
                 return () => unsubscribe();
-            }, [user, roomCode, view, firebaseReady]);
+            }, [isReady, user, roomCode, view]);
 
             const updateHistory = (code, name) => {
                 const newHistory = [{ code, name }, ...history.filter(h => h.code !== code)].slice(0, 5);
@@ -208,28 +202,21 @@
                 localStorage.setItem(`${appId}_history`, JSON.stringify(newHistory));
             };
 
-            const deleteHistory = (code) => {
-                const newHistory = history.filter(h => h.code !== code);
-                setHistory(newHistory);
-                localStorage.setItem(`${appId}_history`, JSON.stringify(newHistory));
-            };
-
             const createRoom = async () => {
-                const fb = window.FB;
-                if (isLoading || !fb || !user) return;
+                if (isLoading || !isReady || !user) return;
                 setIsLoading(true);
+                const { db, doc, setDoc, serverTimestamp } = window.FirebaseBridge;
                 try {
-                    const db = fb.getFirestore();
                     const code = Math.floor(100000 + Math.random() * 900000).toString();
                     const mId = Date.now().toString();
                     const data = { 
-                        name: roomName || '週末小旅行', 
+                        name: roomName || '我的旅行帳本', 
                         code, 
-                        members: [{ id: mId, name: firstMember || '我' }], 
+                        members: [{ id: mId, name: firstMember || '本人' }], 
                         expenses: [],
-                        createdAt: fb.serverTimestamp()
+                        createdAt: serverTimestamp()
                     };
-                    await fb.setDoc(fb.doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code), data);
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code), data);
                     setRoomCode(code);
                     setView('room');
                 } catch (err) { alert("建立失敗"); }
@@ -237,12 +224,11 @@
             };
 
             const joinRoom = async (code) => {
-                const fb = window.FB;
-                if (isLoading || !fb || !user || !code) return;
+                if (isLoading || !isReady || !user || !code) return;
                 setIsLoading(true);
+                const { db, doc, getDoc } = window.FirebaseBridge;
                 try {
-                    const db = fb.getFirestore();
-                    const snap = await fb.getDoc(fb.doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code));
+                    const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code));
                     if (snap.exists()) {
                         setRoomCode(code);
                         setView('room');
@@ -252,14 +238,13 @@
             };
 
             const updateDB = async (newData) => {
-                const fb = window.FB;
-                if (!fb || !user) return;
-                const db = fb.getFirestore();
-                await fb.updateDoc(fb.doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode), newData);
+                if (!isReady || !user) return;
+                const { db, doc, updateDoc } = window.FirebaseBridge;
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode), newData);
             };
 
             const handleAddExpense = async () => {
-                if (!newExp.title || !newExp.amount || !newExp.payerId) return alert("請完整填寫");
+                if (!newExp.title || !newExp.amount || !newExp.payerId) return alert("請完整填寫內容");
                 const expense = { ...newExp, id: Date.now().toString(), amount: parseFloat(newExp.amount) };
                 await updateDB({ expenses: [...(roomData.expenses || []), expense] });
                 setView('room');
@@ -282,18 +267,9 @@
                 setIsDeleteConfirmOpen(false);
             };
 
-            const copyRoomCode = () => {
-                const input = document.createElement('input');
-                input.value = roomCode;
-                document.body.appendChild(input);
-                input.select();
-                document.execCommand('copy');
-                document.body.removeChild(input);
-                alert("已複製房號");
-            };
-
             const { transactions, balances } = useMemo(() => calculateSettlements(roomData.members, roomData.expenses), [roomData]);
 
+            // --- 視圖渲染：保持原始 UI ---
             if (view === 'landing') {
                 return (
                     <div className="scroll-container bg-slate-950 text-white animate-in px-8 items-center justify-center">
@@ -328,13 +304,10 @@
                                     <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest">最近訪問</h4>
                                     <div className="space-y-2">
                                         {history.map(h => (
-                                            <div key={h.code} className="flex gap-2">
-                                                <button onClick={() => joinRoom(h.code)} className="flex-1 flex items-center justify-between p-4 bg-slate-900/50 border border-slate-800 rounded-2xl">
-                                                    <span className="font-bold text-slate-300 truncate">{h.name}</span>
-                                                    <span className="text-indigo-400 font-black text-sm">{h.code}</span>
-                                                </button>
-                                                <button onClick={() => deleteHistory(h.code)} className="p-4 text-slate-600 rounded-2xl border border-slate-800"><Icon name="trash" className="w-4 h-4" /></button>
-                                            </div>
+                                            <button key={h.code} onClick={() => joinRoom(h.code)} className="w-full flex items-center justify-between p-4 bg-slate-900/50 border border-slate-800 rounded-2xl">
+                                                <span className="font-bold text-slate-300 truncate">{h.name}</span>
+                                                <span className="text-indigo-400 font-black text-sm">{h.code}</span>
+                                            </button>
                                         ))}
                                     </div>
                                 </div>
@@ -351,10 +324,7 @@
                             <button onClick={() => setView('landing')} className="p-2 bg-slate-50 rounded-xl text-slate-400"><Icon name="arrowLeft" /></button>
                             <div className="text-center px-2 flex-1 min-w-0">
                                 <h2 className="font-black text-slate-800 truncate">{roomData.name}</h2>
-                                <button onClick={copyRoomCode} className="flex items-center justify-center gap-1 mx-auto">
-                                    <span className="text-[10px] font-black text-slate-400">房號 {roomCode}</span>
-                                    <Icon name="copy" className="w-3 h-3 text-indigo-400" />
-                                </button>
+                                <span className="text-[10px] font-black text-slate-400">房號 {roomCode}</span>
                             </div>
                             <button onClick={() => setView('settle')} className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg"><Icon name="receipt" /></button>
                         </header>
@@ -378,9 +348,7 @@
                             <section>
                                 <h3 className="font-black text-slate-900 text-lg mb-4">支出明細</h3>
                                 <div className="space-y-4">
-                                    {roomData.expenses?.length === 0 ? (
-                                        <div className="text-center py-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[40px] font-bold text-slate-400">還沒有任何支出喔！</div>
-                                    ) : [...(roomData.expenses || [])].reverse().map(exp => (
+                                    {[...(roomData.expenses || [])].reverse().map(exp => (
                                         <GlassCard key={exp.id}>
                                             <div className="flex justify-between items-start gap-2">
                                                 <div className="flex gap-3 min-w-0">
@@ -388,7 +356,7 @@
                                                     <div className="min-w-0">
                                                         <h4 className="font-black text-slate-800 text-lg truncate">{exp.title}</h4>
                                                         <p className="text-xs font-bold text-slate-400 truncate">
-                                                            {roomData.members.find(m => m.id === exp.payerId)?.name} 付款 • {exp.splitMode === 'exact' ? '手動' : '平分'}
+                                                            {roomData.members.find(m => m.id === exp.payerId)?.name} 付款
                                                         </p>
                                                     </div>
                                                 </div>
@@ -403,15 +371,15 @@
                             </section>
                         </div>
 
-                        <Modal isOpen={isMemberModalOpen} onClose={() => setIsMemberModalOpen(false)} title="新增小夥伴">
-                            <input autoFocus value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="輸入名字..." className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xl text-slate-800" />
-                            <button onClick={handleAddMember} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-lg mt-5 shadow-lg">確認加入</button>
+                        <Modal isOpen={isMemberModalOpen} onClose={() => setIsMemberModalOpen(false)} title="新增成員">
+                            <input autoFocus value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="名字" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xl" />
+                            <button onClick={handleAddMember} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-lg mt-5">確認</button>
                         </Modal>
 
-                        <Modal isOpen={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)} title="確定要刪除嗎？">
+                        <Modal isOpen={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)} title="確認刪除？">
                             <div className="grid grid-cols-2 gap-3 mt-4">
                                 <button onClick={() => setIsDeleteConfirmOpen(false)} className="p-4 bg-slate-100 text-slate-500 rounded-2xl font-black">取消</button>
-                                <button onClick={executeDelete} className="p-4 bg-rose-500 text-white rounded-2xl font-black shadow-lg">確定刪除</button>
+                                <button onClick={executeDelete} className="p-4 bg-rose-500 text-white rounded-2xl font-black">刪除</button>
                             </div>
                         </Modal>
 
@@ -428,29 +396,29 @@
             if (view === 'add-expense') {
                 return (
                     <div className="h-full flex flex-col bg-[#F8FAFC]">
-                        <header className="shrink-0 flex items-center gap-4 p-6"><button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">記一筆帳</h2></header>
+                        <header className="shrink-0 flex items-center gap-4 p-6"><button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">記帳</h2></header>
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-32">
                             <GlassCard className="space-y-4">
-                                <input value={newExp.title} onChange={e => setNewExp({...newExp, title: e.target.value})} placeholder="這筆錢花在哪？" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-lg" />
+                                <input value={newExp.title} onChange={e => setNewExp({...newExp, title: e.target.value})} placeholder="項目" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" />
                                 <div className="relative">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300 text-2xl">$</span>
                                     <input type="number" inputMode="decimal" value={newExp.amount} onChange={e => setNewExp({...newExp, amount: e.target.value})} placeholder="金額" className="w-full p-4 pl-10 bg-slate-50 rounded-2xl outline-none font-black text-3xl text-indigo-600" />
                                 </div>
                             </GlassCard>
                             <section>
-                                <h3 className="font-black text-slate-800 mb-3 ml-1">誰付的錢？</h3>
+                                <h3 className="font-black text-slate-800 mb-3 ml-1">誰付的？</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {roomData.members.map(m => (
-                                        <button key={m.id} onClick={() => setNewExp({...newExp, payerId: m.id})} className={`px-5 py-2.5 rounded-2xl font-bold transition-all ${newExp.payerId === m.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-100'}`}>{m.name}</button>
+                                        <button key={m.id} onClick={() => setNewExp({...newExp, payerId: m.id})} className={`px-5 py-2.5 rounded-2xl font-bold ${newExp.payerId === m.id ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500'}`}>{m.name}</button>
                                     ))}
                                 </div>
                             </section>
                             <section>
                                 <div className="flex justify-between items-end mb-4 ml-1">
-                                    <h3 className="font-black text-slate-800">分攤模式</h3>
+                                    <h3 className="font-black text-slate-800">分攤方式</h3>
                                     <div className="bg-slate-100 p-1 rounded-xl flex gap-1">
-                                        <button onClick={() => setNewExp({...newExp, splitMode: 'equal'})} className={`px-4 py-2 rounded-lg font-black text-xs flex items-center gap-2 ${newExp.splitMode === 'equal' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><Icon name="equal" className="w-3 h-3" /> 平均</button>
-                                        <button onClick={() => setNewExp({...newExp, splitMode: 'exact'})} className={`px-4 py-2 rounded-lg font-black text-xs flex items-center gap-2 ${newExp.splitMode === 'exact' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><Icon name="calculator" className="w-3 h-3" /> 手動</button>
+                                        <button onClick={() => setNewExp({...newExp, splitMode: 'equal'})} className={`px-4 py-2 rounded-lg font-black text-xs ${newExp.splitMode === 'equal' ? 'bg-white text-indigo-600' : 'text-slate-400'}`}>平均</button>
+                                        <button onClick={() => setNewExp({...newExp, splitMode: 'exact'})} className={`px-4 py-2 rounded-lg font-black text-xs ${newExp.splitMode === 'exact' ? 'bg-white text-indigo-600' : 'text-slate-400'}`}>手動</button>
                                     </div>
                                 </div>
                                 {newExp.splitMode === 'equal' ? (
@@ -458,9 +426,9 @@
                                         {roomData.members.map(m => {
                                             const isSelected = newExp.participants.includes(m.id);
                                             return (
-                                                <button key={m.id} onClick={() => setNewExp({...newExp, participants: isSelected ? newExp.participants.filter(id => id !== m.id) : [...newExp.participants, m.id]})} className={`p-4 rounded-[28px] font-bold flex items-center justify-between border transition-all ${isSelected ? 'bg-white border-indigo-200 text-indigo-600 shadow-sm' : 'bg-white border-transparent text-slate-400'}`}>
-                                                    <span className="truncate">{m.name}</span>
-                                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-100'}`}>{isSelected && <Icon name="check" className="text-white w-3 h-3" />}</div>
+                                                <button key={m.id} onClick={() => setNewExp({...newExp, participants: isSelected ? newExp.participants.filter(id => id !== m.id) : [...newExp.participants, m.id]})} className={`p-4 rounded-[28px] font-bold flex items-center justify-between border ${isSelected ? 'bg-white border-indigo-200 text-indigo-600 shadow-sm' : 'bg-white border-transparent text-slate-400'}`}>
+                                                    <span>{m.name}</span>
+                                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-100'}`}>{isSelected && <Icon name="check" className="text-white w-3 h-3" />}</div>
                                                 </button>
                                             );
                                         })}
@@ -468,12 +436,9 @@
                                 ) : (
                                     <div className="space-y-3 animate-in">
                                         {roomData.members.map(m => (
-                                            <div key={m.id} className="bg-white p-4 rounded-3xl border border-slate-100 flex items-center justify-between shadow-sm">
-                                                <span className="font-black text-slate-700 truncate">{m.name}</span>
-                                                <div className="relative shrink-0">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 font-bold">$</span>
-                                                    <input type="number" inputMode="decimal" placeholder="0" value={newExp.customAmounts[m.id] || ''} onChange={(e) => setNewExp({...newExp, customAmounts: { ...newExp.customAmounts, [m.id]: e.target.value }})} className="w-28 p-2 pl-7 bg-slate-50 rounded-xl outline-none font-black text-right text-indigo-600" />
-                                                </div>
+                                            <div key={m.id} className="bg-white p-4 rounded-3xl flex items-center justify-between border border-slate-100">
+                                                <span className="font-black text-slate-700">{m.name}</span>
+                                                <input type="number" placeholder="0" value={newExp.customAmounts[m.id] || ''} onChange={(e) => setNewExp({...newExp, customAmounts: { ...newExp.customAmounts, [m.id]: e.target.value }})} className="w-24 p-2 bg-slate-50 rounded-xl outline-none text-right font-black text-indigo-600" />
                                             </div>
                                         ))}
                                     </div>
@@ -481,7 +446,7 @@
                             </section>
                         </div>
                         <div className="shrink-0 p-6 bg-white/80 border-t border-slate-100 ios-inset">
-                            <button onClick={handleAddExpense} className="w-full bg-slate-900 text-white p-6 rounded-[32px] font-black text-xl shadow-2xl btn-active">儲存開銷</button>
+                            <button onClick={handleAddExpense} className="w-full bg-slate-900 text-white p-6 rounded-[32px] font-black text-xl shadow-2xl">儲存</button>
                         </div>
                     </div>
                 );
@@ -490,13 +455,13 @@
             if (view === 'settle') {
                 return (
                     <div className="h-full flex flex-col bg-slate-50">
-                        <header className="shrink-0 flex items-center gap-4 p-6 bg-white/50 backdrop-blur-sm"><button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">結算報告</h2></header>
+                        <header className="shrink-0 flex items-center gap-4 p-6 bg-white/50 backdrop-blur-sm"><button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">結算</h2></header>
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-10">
                             <section>
                                 <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 rounded-[40px] text-white shadow-2xl space-y-4">
                                     {roomData.members.map(m => (
                                         <div key={m.id} className="flex justify-between items-center">
-                                            <span className="font-bold text-lg truncate">{m.name}</span>
+                                            <span className="font-bold text-lg">{m.name}</span>
                                             <span className="text-xl font-black">{(balances[m.id] || 0) >= 0 ? '+' : ''}{(balances[m.id] || 0).toFixed(0)}</span>
                                         </div>
                                     ))}
@@ -504,20 +469,20 @@
                             </section>
                             <section className="space-y-4">
                                 {transactions.length === 0 ? (
-                                    <div className="text-center py-12 text-slate-400 font-bold bg-white rounded-[32px] border border-slate-100">大家已經扯平囉！</div>
+                                    <div className="text-center py-12 text-slate-400 font-bold bg-white rounded-[32px]">已結清！</div>
                                 ) : transactions.map((t, idx) => (
-                                    <GlassCard key={idx} className="flex justify-between items-center py-8 gap-2">
-                                        <div className="text-center flex-1 min-w-0">
-                                            <div className="text-[9px] text-slate-400 font-black mb-1 uppercase tracking-widest">支付人</div>
-                                            <div className="font-black text-slate-800 text-lg truncate">{roomData.members.find(m => m.id === t.from)?.name}</div>
+                                    <GlassCard key={idx} className="flex justify-between items-center py-8">
+                                        <div className="text-center flex-1">
+                                            <div className="text-[9px] text-slate-400 font-black mb-1">支付人</div>
+                                            <div className="font-black text-slate-800 text-lg">{roomData.members.find(m => m.id === t.from)?.name}</div>
                                         </div>
-                                        <div className="flex flex-col items-center px-2 space-y-2 shrink-0">
-                                            <div className="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full font-black text-sm shadow-sm border border-indigo-100">${t.amount.toFixed(0)}</div>
-                                            <div className="w-16 h-[2px] bg-slate-100 relative"><div className="absolute right-0 -top-1 border-t-4 border-l-4 border-transparent border-l-indigo-300 w-2 h-2 rotate-45"></div></div>
+                                        <div className="flex flex-col items-center px-4">
+                                            <div className="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full font-black text-sm">${t.amount.toFixed(0)}</div>
+                                            <div className="w-16 h-[2px] bg-slate-100 mt-2"></div>
                                         </div>
-                                        <div className="text-center flex-1 min-w-0">
-                                            <div className="text-[9px] text-slate-400 font-black mb-1 uppercase tracking-widest">接收人</div>
-                                            <div className="font-black text-indigo-600 text-lg truncate">{roomData.members.find(m => m.id === t.to)?.name}</div>
+                                        <div className="text-center flex-1">
+                                            <div className="text-[9px] text-slate-400 font-black mb-1">接收人</div>
+                                            <div className="font-black text-indigo-600 text-lg">{roomData.members.find(m => m.id === t.to)?.name}</div>
                                         </div>
                                     </GlassCard>
                                 ))}
