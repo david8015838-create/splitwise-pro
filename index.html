@@ -16,7 +16,7 @@
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
             -webkit-tap-highlight-color: transparent; 
-            background-color: #F8FAFC;
+            background-color: #020617; /* Slate-950 */
             overflow: hidden; 
             width: 100vw;
             height: 100dvh;
@@ -29,8 +29,8 @@
             max-width: 500px;
             margin: 0 auto;
             position: relative;
-            background: white;
-            box-shadow: 0 0 40px rgba(0,0,0,0.05);
+            background: #020617;
+            box-shadow: 0 0 80px rgba(0,0,0,0.5);
         }
         .animate-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
@@ -39,7 +39,7 @@
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         
         .btn-active:active { transform: scale(0.96); }
-        .premium-shadow { box-shadow: 0 20px 40px -15px rgba(79, 70, 229, 0.15); }
+        .premium-shadow { box-shadow: 0 15px 30px -10px rgba(79, 70, 229, 0.4); }
         .ios-inset { padding-bottom: env(safe-area-inset-bottom); }
         
         .scroll-container {
@@ -54,6 +54,16 @@
         
         * { box-sizing: border-box; }
         .scroll-hide::-webkit-scrollbar { display: none; }
+
+        /* 防止 iOS 輸入框自動放大 */
+        input { font-size: 16px !important; }
+
+        /* 深色模式下的玻璃卡片 */
+        .glass-card {
+            background: rgba(30, 41, 59, 0.5); /* Slate-800 with alpha */
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
     </style>
 </head>
 <body>
@@ -72,7 +82,7 @@
                 plus: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>,
                 trash: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
                 arrowLeft: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>,
-                receipt: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
+                receipt: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
                 check: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>,
                 chart: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>,
                 copy: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>,
@@ -84,7 +94,7 @@
         };
 
         const GlassCard = ({ children, className = "", onClick }) => (
-            <div onClick={onClick} className={`bg-white rounded-[24px] border border-slate-100 shadow-sm p-5 transition-all ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''} ${className}`}>
+            <div onClick={onClick} className={`glass-card rounded-[24px] p-5 transition-all ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''} ${className}`}>
                 {children}
             </div>
         );
@@ -93,12 +103,12 @@
             if (!isOpen) return null;
             return (
                 <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
-                    <div className="bg-white w-full max-w-[500px] rounded-t-[32px] sm:rounded-[32px] shadow-2xl relative z-10 slide-up sm:animate-in overflow-hidden ios-inset">
+                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+                    <div className="bg-slate-900 w-full max-w-[500px] rounded-t-[32px] sm:rounded-[32px] shadow-2xl relative z-10 slide-up sm:animate-in overflow-hidden ios-inset border-t border-slate-800">
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-xl font-black text-slate-800">{title}</h3>
-                                <button onClick={onClose} className="p-2 bg-slate-100 text-slate-400 rounded-full hover:bg-slate-200 transition-colors">
+                                <h3 className="text-xl font-black text-white">{title}</h3>
+                                <button onClick={onClose} className="p-2 bg-slate-800 text-slate-400 rounded-full hover:bg-slate-700 transition-colors">
                                     <Icon name="x" className="w-4 h-4" />
                                 </button>
                             </div>
@@ -214,6 +224,12 @@
                 localStorage.setItem('splitwise_pro_history_v2', JSON.stringify(newHistory));
             };
 
+            const removeFromHistory = (code) => {
+                const newHistory = history.filter(h => h.code !== code);
+                setHistory(newHistory);
+                localStorage.setItem('splitwise_pro_history_v2', JSON.stringify(newHistory));
+            };
+
             const createRoom = async () => {
                 const code = Math.floor(100000 + Math.random() * 900000).toString();
                 const mId = 'm_' + Date.now();
@@ -248,7 +264,7 @@
                 try {
                     document.execCommand('copy');
                     const toast = document.createElement('div');
-                    toast.className = "fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full text-sm font-bold animate-in z-[200]";
+                    toast.className = "fixed bottom-24 left-1/2 -translate-x-1/2 bg-white text-slate-950 px-6 py-3 rounded-full text-sm font-bold animate-in z-[200]";
                     toast.innerText = toastMsg;
                     document.body.appendChild(toast);
                     setTimeout(() => toast.remove(), 2000);
@@ -260,13 +276,10 @@
 
             const handleAddExpense = async () => {
                 if (!newExp.title || !newExp.amount || !newExp.payerId) return;
-                
-                // 驗證手動模式下金額是否正確
                 if (newExp.splitMode === 'exact') {
                     const totalInput = Object.values(newExp.customAmounts).reduce((acc, val) => acc + (parseFloat(val) || 0), 0);
                     if (Math.abs(totalInput - parseFloat(newExp.amount)) > 0.1) return;
                 }
-
                 const expense = { ...newExp, id: 'e_' + Date.now(), amount: parseFloat(newExp.amount) };
                 const newData = { ...roomData, expenses: [...roomData.expenses, expense] };
                 await saveRoomToCloud(newData);
@@ -296,7 +309,6 @@
 
             const { transactions, balances, detailedExpenses } = useMemo(() => calculateSettlements(roomData.members, roomData.expenses), [roomData]);
 
-            // 計算手動模式剩餘金額
             const manualRemaining = useMemo(() => {
                 if (newExp.splitMode !== 'exact') return 0;
                 const totalTarget = parseFloat(newExp.amount) || 0;
@@ -323,9 +335,10 @@
                 copyToClipboard(shareText, "結算內容已複製，可直接貼到 Line！");
             };
 
+            // 首頁
             if (view === 'landing') {
                 return (
-                    <div className="scroll-container bg-slate-950 text-white animate-in px-8 items-center justify-center">
+                    <div className="scroll-container bg-slate-950 text-white animate-in px-8 items-center justify-center scroll-hide">
                         <div className="text-center mb-10 space-y-4 pt-12">
                             <div className="w-24 h-24 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-[32px] flex items-center justify-center shadow-2xl mx-auto transform rotate-12">
                                 <Icon name="chart" className="text-white w-12 h-12" />
@@ -338,26 +351,27 @@
                                 </div>
                             </div>
                         </div>
-                        <div className="w-full max-sm space-y-6 pb-12 text-slate-900">
+                        <div className="w-full max-w-[400px] space-y-6 pb-12 text-slate-900 mx-auto">
                             <div className="space-y-3">
-                                <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder="活動名稱" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-bold text-white" />
-                                <input value={firstMember} onChange={e => setFirstMember(e.target.value)} placeholder="您的暱稱" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-bold text-white" />
-                                <button onClick={createRoom} className="w-full bg-indigo-600 text-white p-4 rounded-2xl font-black btn-active transition-colors">建立房間</button>
+                                <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder="活動名稱" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-bold text-white placeholder:text-slate-600" />
+                                <input value={firstMember} onChange={e => setFirstMember(e.target.value)} placeholder="您的暱稱" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-bold text-white placeholder:text-slate-600" />
+                                <button onClick={createRoom} className="w-full bg-indigo-600 text-white p-4 rounded-2xl font-black btn-active transition-colors shadow-lg">建立房間</button>
                             </div>
                             <div className="flex items-center gap-4 py-2"><div className="h-px bg-slate-800 flex-1"></div><span className="text-slate-600 font-black text-[10px] tracking-widest uppercase">輸入房號</span><div className="h-px bg-slate-800 flex-1"></div></div>
-                            <div className="flex gap-2">
-                                <input value={roomCode} onChange={e => setRoomCode(e.target.value)} placeholder="6 位數字" className="flex-1 p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-black text-center text-white" />
-                                <button onClick={() => joinRoom(roomCode)} className="bg-slate-100 text-slate-900 px-6 rounded-2xl font-black btn-active shrink-0">進入</button>
+                            <div className="flex gap-2 w-full">
+                                <input value={roomCode} onChange={e => setRoomCode(e.target.value)} placeholder="房號" className="flex-1 min-w-0 p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-black text-center text-white placeholder:text-slate-600" />
+                                <button onClick={() => joinRoom(roomCode)} className="bg-slate-100 text-slate-900 px-8 rounded-2xl font-black btn-active shrink-0">進入</button>
                             </div>
                             {history.length > 0 && (
                                 <div className="space-y-3 pt-4">
                                     <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] ml-1">最近訪問</h4>
                                     {history.map(h => (
-                                        <div key={h.code} className="flex gap-2 group">
-                                            <button onClick={() => joinRoom(h.code)} className="flex-1 flex items-center justify-between p-4 bg-slate-900/50 border border-slate-800 rounded-2xl min-w-0">
+                                        <div key={h.code} className="flex gap-2 items-stretch group animate-in">
+                                            <button onClick={() => joinRoom(h.code)} className="flex-1 flex items-center justify-between p-4 bg-slate-900/50 border border-slate-800 rounded-2xl min-w-0 text-left">
                                                 <span className="font-bold text-slate-300 truncate mr-2">{h.name}</span>
                                                 <span className="text-indigo-400 font-black tracking-widest text-sm shrink-0">{h.code}</span>
                                             </button>
+                                            <button onClick={() => removeFromHistory(h.code)} className="w-14 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl flex items-center justify-center active:scale-95 transition-all"><Icon name="trash" className="w-5 h-5" /></button>
                                         </div>
                                     ))}
                                 </div>
@@ -367,15 +381,16 @@
                 );
             }
 
+            // 房間主頁面
             if (view === 'room') {
                 return (
-                    <div className="h-full flex flex-col bg-[#F8FAFC]">
-                        <header className="shrink-0 bg-white px-6 py-4 flex items-center justify-between border-b border-slate-100 z-50">
-                            <button onClick={() => setView('landing')} className="p-2 bg-slate-50 rounded-xl text-slate-400"><Icon name="arrowLeft" /></button>
+                    <div className="h-full flex flex-col bg-slate-950 text-white">
+                        <header className="shrink-0 bg-slate-950/50 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-white/5 z-50">
+                            <button onClick={() => setView('landing')} className="p-2 bg-slate-900 rounded-xl text-slate-400"><Icon name="arrowLeft" /></button>
                             <div className="text-center px-2 flex-1 min-w-0">
-                                <h2 className="font-black text-slate-800 leading-tight truncate">{roomData.name || '載入中...'}</h2>
+                                <h2 className="font-black text-white leading-tight truncate">{roomData.name || '載入中...'}</h2>
                                 <button onClick={() => copyToClipboard(roomCode.replace(/\D/g, ''), "房號已複製！")} className="flex items-center justify-center gap-1.5 mx-auto active:scale-95 transition-all">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">房號 {roomCode}</span>
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">房號 {roomCode}</span>
                                     <Icon name="copy" className="w-3 h-3 text-indigo-400" />
                                 </button>
                             </div>
@@ -384,40 +399,40 @@
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-32 scroll-hide">
                             <section>
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="font-black text-slate-900 text-lg">參與成員</h3>
-                                    <button onClick={() => setIsMemberModalOpen(true)} className="text-indigo-600 font-black text-sm">+ 新增</button>
+                                    <h3 className="font-black text-white text-lg">參與成員</h3>
+                                    <button onClick={() => setIsMemberModalOpen(true)} className="text-indigo-400 font-black text-sm">+ 新增</button>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                     {roomData.members.map(m => (
-                                        <div key={m.id} className="bg-white border border-slate-100 px-4 py-2 rounded-2xl flex items-center gap-3 shadow-sm">
-                                            <span className="font-bold text-slate-700">{m.name}</span>
-                                            <button onClick={() => { setItemToDelete(m.id); setDeleteType('member'); setIsDeleteConfirmOpen(true); }} className="text-slate-300"><Icon name="trash" className="w-3.5 h-3.5" /></button>
+                                        <div key={m.id} className="glass-card px-4 py-2 rounded-2xl flex items-center gap-3 shadow-sm animate-in">
+                                            <span className="font-bold text-slate-200">{m.name}</span>
+                                            <button onClick={() => { setItemToDelete(m.id); setDeleteType('member'); setIsDeleteConfirmOpen(true); }} className="text-slate-500"><Icon name="trash" className="w-3.5 h-3.5" /></button>
                                         </div>
                                     ))}
                                 </div>
                             </section>
                             <section>
-                                <h3 className="font-black text-slate-900 text-lg mb-4">支出明細</h3>
+                                <h3 className="font-black text-white text-lg mb-4">支出明細</h3>
                                 <div className="space-y-4">
                                     {roomData.expenses.length === 0 ? (
-                                        <div className="text-center py-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[32px]">
-                                            <p className="text-slate-400 font-bold">目前沒有資料</p>
+                                        <div className="text-center py-20 bg-slate-900/50 border-2 border-dashed border-slate-800 rounded-[32px]">
+                                            <p className="text-slate-600 font-bold">目前沒有資料</p>
                                         </div>
                                     ) : [...roomData.expenses].reverse().map(exp => (
-                                        <GlassCard key={exp.id}>
+                                        <GlassCard key={exp.id} className="animate-in">
                                             <div className="flex justify-between items-start gap-2">
                                                 <div className="flex gap-3 min-w-0">
-                                                    <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0"><Icon name="receipt" /></div>
+                                                    <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400 shrink-0"><Icon name="receipt" /></div>
                                                     <div className="min-w-0">
-                                                        <h4 className="font-black text-slate-800 text-lg truncate">{exp.title}</h4>
-                                                        <p className="text-xs font-bold text-slate-400 truncate">
+                                                        <h4 className="font-black text-white text-lg truncate">{exp.title}</h4>
+                                                        <p className="text-xs font-bold text-slate-500 truncate">
                                                             {roomData.members.find(m => m.id === exp.payerId)?.name} 付款 • {exp.splitMode === 'exact' ? '手動' : '平均'}
                                                         </p>
                                                     </div>
                                                 </div>
                                                 <div className="text-right flex flex-col items-end gap-1">
-                                                    <span className="text-xl font-black text-slate-900">${parseFloat(exp.amount).toLocaleString()}</span>
-                                                    <button onClick={() => { setItemToDelete(exp.id); setDeleteType('expense'); setIsDeleteConfirmOpen(true); }} className="text-rose-400"><Icon name="trash" className="w-4 h-4" /></button>
+                                                    <span className="text-xl font-black text-white">${parseFloat(exp.amount).toLocaleString()}</span>
+                                                    <button onClick={() => { setItemToDelete(exp.id); setDeleteType('expense'); setIsDeleteConfirmOpen(true); }} className="text-rose-400/60"><Icon name="trash" className="w-4 h-4" /></button>
                                                 </div>
                                             </div>
                                         </GlassCard>
@@ -427,16 +442,16 @@
                         </div>
                         <Modal isOpen={isMemberModalOpen} onClose={() => setIsMemberModalOpen(false)} title="新增小夥伴">
                             <div className="space-y-5">
-                                <input autoFocus value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="輸入名字..." className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xl text-slate-800" />
-                                <button onClick={handleAddMember} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-lg btn-active">確認加入</button>
+                                <input autoFocus value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="輸入名字..." className="w-full p-5 bg-slate-800 border border-slate-700 rounded-2xl outline-none font-black text-xl text-white" />
+                                <button onClick={handleAddMember} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-lg btn-active shadow-lg">確認加入</button>
                             </div>
                         </Modal>
                         <Modal isOpen={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)} title="確定要刪除嗎？">
                             <div className="space-y-6">
-                                <p className="text-slate-500 font-bold">刪除後數據將透過 P2P 同步，無法復原。</p>
+                                <p className="text-slate-400 font-bold">刪除後數據將透過 P2P 同步，無法復原。</p>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => setIsDeleteConfirmOpen(false)} className="p-4 bg-slate-100 text-slate-500 rounded-2xl font-black btn-active">取消</button>
-                                    <button onClick={executeDelete} className="p-4 bg-rose-500 text-white rounded-2xl font-black btn-active">確定刪除</button>
+                                    <button onClick={() => setIsDeleteConfirmOpen(false)} className="p-4 bg-slate-800 text-slate-400 rounded-2xl font-black btn-active">取消</button>
+                                    <button onClick={executeDelete} className="p-4 bg-rose-600 text-white rounded-2xl font-black btn-active shadow-lg">確定刪除</button>
                                 </div>
                             </div>
                         </Modal>
@@ -450,29 +465,29 @@
                 );
             }
 
+            // 新增支出頁面
             if (view === 'add-expense') {
                 const isManualValid = newExp.splitMode === 'exact' ? Math.abs(manualRemaining) < 0.1 : true;
                 const canSave = newExp.title && newExp.amount && newExp.payerId && (newExp.splitMode === 'equal' ? newExp.participants.length > 0 : isManualValid);
-
                 return (
-                    <div className="h-full flex flex-col bg-[#F8FAFC]">
-                        <header className="shrink-0 flex items-center gap-4 p-6 bg-white">
-                            <button onClick={() => setView('room')} className="p-2 bg-slate-50 rounded-xl shadow-sm"><Icon name="arrowLeft" /></button>
-                            <h2 className="text-2xl font-black text-slate-900">記一筆帳</h2>
+                    <div className="h-full flex flex-col bg-slate-950 text-white">
+                        <header className="shrink-0 flex items-center gap-4 p-6 bg-slate-950/50 backdrop-blur-md">
+                            <button onClick={() => setView('room')} className="p-2 bg-slate-900 rounded-xl"><Icon name="arrowLeft" /></button>
+                            <h2 className="text-2xl font-black text-white">記一筆帳</h2>
                         </header>
-                        <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-32">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-32 scroll-hide">
                             <GlassCard className="space-y-4">
-                                <input value={newExp.title} onChange={e => setNewExp({...newExp, title: e.target.value})} placeholder="這筆錢花在哪？" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-lg" />
+                                <input value={newExp.title} onChange={e => setNewExp({...newExp, title: e.target.value})} placeholder="這筆錢花在哪？" className="w-full p-4 bg-slate-900/50 rounded-2xl outline-none font-bold text-lg text-white placeholder:text-slate-600" />
                                 <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300 text-2xl">$</span>
-                                    <input type="number" inputMode="decimal" value={newExp.amount} onChange={e => setNewExp({...newExp, amount: e.target.value})} placeholder="金額" className="w-full p-4 pl-10 bg-slate-50 rounded-2xl outline-none font-black text-3xl text-indigo-600" />
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-700 text-2xl">$</span>
+                                    <input type="number" inputMode="decimal" value={newExp.amount} onChange={e => setNewExp({...newExp, amount: e.target.value})} placeholder="金額" className="w-full p-4 pl-10 bg-slate-900/50 rounded-2xl outline-none font-black text-3xl text-indigo-400 placeholder:text-slate-800" />
                                 </div>
                             </GlassCard>
                             <section>
-                                <h3 className="font-black text-slate-800 mb-3 ml-1">誰付的錢？</h3>
+                                <h3 className="font-black text-slate-400 mb-3 ml-1 text-xs uppercase tracking-widest">誰付的錢？</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {roomData.members.map(m => (
-                                        <button key={m.id} onClick={() => setNewExp({...newExp, payerId: m.id})} className={`px-5 py-2.5 rounded-2xl font-bold transition-all ${newExp.payerId === m.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-100'}`}>
+                                        <button key={m.id} onClick={() => setNewExp({...newExp, payerId: m.id})} className={`px-5 py-2.5 rounded-2xl font-bold transition-all ${newExp.payerId === m.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>
                                             {m.name}
                                         </button>
                                     ))}
@@ -480,26 +495,24 @@
                             </section>
                             <section>
                                 <div className="flex justify-between items-end mb-4 ml-1">
-                                    <h3 className="font-black text-slate-800">分攤模式</h3>
-                                    <div className="bg-slate-100 p-1 rounded-xl flex gap-1">
-                                        <button onClick={() => setNewExp({...newExp, splitMode: 'equal'})} className={`px-4 py-2 rounded-lg font-black text-xs ${newExp.splitMode === 'equal' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>平均</button>
-                                        <button onClick={() => setNewExp({...newExp, splitMode: 'exact'})} className={`px-4 py-2 rounded-lg font-black text-xs ${newExp.splitMode === 'exact' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>手動</button>
+                                    <h3 className="font-black text-slate-400 text-xs uppercase tracking-widest">分攤模式</h3>
+                                    <div className="bg-slate-900 p-1 rounded-xl flex gap-1 border border-white/5">
+                                        <button onClick={() => setNewExp({...newExp, splitMode: 'equal'})} className={`px-4 py-2 rounded-lg font-black text-xs ${newExp.splitMode === 'equal' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500'}`}>平均</button>
+                                        <button onClick={() => setNewExp({...newExp, splitMode: 'exact'})} className={`px-4 py-2 rounded-lg font-black text-xs ${newExp.splitMode === 'exact' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500'}`}>手動</button>
                                     </div>
                                 </div>
-
                                 {newExp.splitMode === 'exact' && (
-                                    <div className={`mb-4 p-4 rounded-2xl flex items-center justify-between animate-in ${manualRemaining === 0 ? 'bg-green-50 border border-green-100' : 'bg-rose-50 border border-rose-100'}`}>
+                                    <div className={`mb-4 p-4 rounded-2xl flex items-center justify-between animate-in ${manualRemaining === 0 ? 'bg-green-500/10 border border-green-500/20' : 'bg-rose-500/10 border border-rose-500/20'}`}>
                                         <div className="flex items-center gap-2">
-                                            <div className={`${manualRemaining === 0 ? 'text-green-600' : 'text-rose-500'}`}>
+                                            <div className={`${manualRemaining === 0 ? 'text-green-500' : 'text-rose-500'}`}>
                                                 <Icon name={manualRemaining === 0 ? "check" : "alert"} className="w-5 h-5" />
                                             </div>
-                                            <span className={`text-sm font-black ${manualRemaining === 0 ? 'text-green-700' : 'text-rose-700'}`}>
+                                            <span className={`text-sm font-black ${manualRemaining === 0 ? 'text-green-400' : 'text-rose-400'}`}>
                                                 {manualRemaining === 0 ? "金額已完全分配" : manualRemaining > 0 ? `還剩 $${manualRemaining.toFixed(1)} 未列入` : `已超額 $${Math.abs(manualRemaining).toFixed(1)}`}
                                             </span>
                                         </div>
                                     </div>
                                 )}
-
                                 {newExp.splitMode === 'equal' ? (
                                     <div className="grid grid-cols-2 gap-3 animate-in">
                                         {roomData.members.map(m => {
@@ -508,9 +521,9 @@
                                                 <button key={m.id} onClick={() => {
                                                     const next = isSelected ? newExp.participants.filter(id => id !== m.id) : [...newExp.participants, m.id];
                                                     setNewExp({...newExp, participants: next});
-                                                }} className={`p-4 rounded-[28px] font-bold flex items-center justify-between border transition-all ${isSelected ? 'bg-white border-indigo-200 text-indigo-600 shadow-sm' : 'bg-white border-transparent text-slate-400'}`}>
+                                                }} className={`p-4 rounded-[28px] font-bold flex items-center justify-between border transition-all ${isSelected ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400' : 'bg-slate-900 border-transparent text-slate-600'}`}>
                                                     <span className="truncate mr-2">{m.name}</span>
-                                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-100'}`}>
+                                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-800'}`}>
                                                         {isSelected && <Icon name="check" className="text-white w-3 h-3" />}
                                                     </div>
                                                 </button>
@@ -520,11 +533,11 @@
                                 ) : (
                                     <div className="space-y-3 animate-in">
                                         {roomData.members.map(m => (
-                                            <div key={m.id} className="bg-white p-4 rounded-3xl border border-slate-100 flex items-center justify-between shadow-sm">
-                                                <span className="font-black text-slate-700 truncate mr-2">{m.name}</span>
+                                            <div key={m.id} className="glass-card p-4 rounded-3xl flex items-center justify-between">
+                                                <span className="font-black text-slate-200 truncate mr-2">{m.name}</span>
                                                 <div className="relative shrink-0">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 font-bold">$</span>
-                                                    <input type="number" inputMode="decimal" placeholder="0" value={newExp.customAmounts[m.id] || ''} onChange={(e) => setNewExp({...newExp, customAmounts: { ...newExp.customAmounts, [m.id]: e.target.value }})} className="w-28 p-2 pl-7 bg-slate-50 rounded-xl outline-none font-black text-right text-indigo-600" />
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 font-bold">$</span>
+                                                    <input type="number" inputMode="decimal" placeholder="0" value={newExp.customAmounts[m.id] || ''} onChange={(e) => setNewExp({...newExp, customAmounts: { ...newExp.customAmounts, [m.id]: e.target.value }})} className="w-28 p-2 pl-7 bg-slate-900 rounded-xl outline-none font-black text-right text-indigo-400" />
                                                 </div>
                                             </div>
                                         ))}
@@ -532,12 +545,8 @@
                                 )}
                             </section>
                         </div>
-                        <div className="shrink-0 p-6 bg-white border-t border-slate-100 ios-inset">
-                            <button 
-                                disabled={!canSave}
-                                onClick={handleAddExpense} 
-                                className={`w-full p-6 rounded-[32px] font-black text-xl transition-all ${canSave ? 'bg-slate-900 text-white btn-active shadow-xl' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
-                            >
+                        <div className="shrink-0 p-6 bg-slate-950 border-t border-white/5 ios-inset">
+                            <button disabled={!canSave} onClick={handleAddExpense} className={`w-full p-6 rounded-[32px] font-black text-xl transition-all ${canSave ? 'bg-white text-slate-950 btn-active shadow-xl' : 'bg-slate-900 text-slate-700 cursor-not-allowed'}`}>
                                 {newExp.splitMode === 'exact' && !isManualValid ? '金額未對齊' : '儲存開銷'}
                             </button>
                         </div>
@@ -545,28 +554,29 @@
                 );
             }
 
+            // 結算頁面
             if (view === 'settle') {
                 return (
-                    <div className="h-full flex flex-col bg-slate-50">
-                        <header className="shrink-0 flex items-center justify-between p-6 bg-white border-b border-slate-100">
+                    <div className="h-full flex flex-col bg-slate-950 text-white">
+                        <header className="shrink-0 flex items-center justify-between p-6 bg-slate-950 border-b border-white/5">
                             <div className="flex items-center gap-4">
-                                <button onClick={() => setView('room')} className="p-2 bg-slate-50 rounded-xl shadow-sm"><Icon name="arrowLeft" /></button>
-                                <h2 className="text-2xl font-black text-slate-900">結算報告</h2>
+                                <button onClick={() => setView('room')} className="p-2 bg-slate-900 rounded-xl"><Icon name="arrowLeft" /></button>
+                                <h2 className="text-2xl font-black text-white">結算報告</h2>
                             </div>
-                            <button onClick={handleShareSettle} className="p-3 bg-slate-900 text-white rounded-xl shadow-lg active:scale-95 transition-all">
+                            <button onClick={handleShareSettle} className="p-3 bg-white text-slate-950 rounded-xl shadow-lg active:scale-95 transition-all">
                                 <Icon name="share" className="w-5 h-5" />
                             </button>
                         </header>
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-10 scroll-hide">
                             <section>
-                                <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest mb-3 ml-1 opacity-50">收支總覽</h3>
-                                <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
+                                <h3 className="font-black text-slate-500 text-[10px] uppercase tracking-widest mb-3 ml-1 opacity-50">收支總覽</h3>
+                                <div className="glass-card rounded-[32px] p-6 space-y-4 shadow-xl shadow-black/20">
                                     {roomData.members.map(m => {
                                         const balance = balances[m.id] || 0;
                                         return (
-                                            <div key={m.id} className="flex justify-between items-center border-b border-slate-50 last:border-0 pb-3 last:pb-0">
-                                                <span className="font-bold text-slate-700">{m.name}</span>
-                                                <span className={`font-black text-lg ${balance >= 0 ? 'text-green-600' : 'text-rose-500'}`}>
+                                            <div key={m.id} className="flex justify-between items-center border-b border-white/5 last:border-0 pb-3 last:pb-0">
+                                                <span className="font-bold text-slate-300">{m.name}</span>
+                                                <span className={`font-black text-lg ${balance >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
                                                     {balance >= 0 ? '+' : ''}{balance.toFixed(0)}
                                                 </span>
                                             </div>
@@ -574,27 +584,26 @@
                                     })}
                                 </div>
                             </section>
-
                             <section>
-                                <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest mb-3 ml-1 opacity-50">消費詳情</h3>
+                                <h3 className="font-black text-slate-500 text-[10px] uppercase tracking-widest mb-3 ml-1 opacity-50">消費詳情</h3>
                                 <div className="space-y-4">
                                     {detailedExpenses.map((exp, idx) => (
-                                        <div key={idx} className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-sm space-y-3">
+                                        <div key={idx} className="glass-card rounded-[24px] p-5 space-y-3">
                                             <div className="flex justify-between items-start">
-                                                <h4 className="font-black text-slate-800 text-lg leading-tight">{exp.title}</h4>
-                                                <span className="text-xl font-black text-slate-900">${exp.total.toLocaleString()}</span>
+                                                <h4 className="font-black text-white text-lg leading-tight">{exp.title}</h4>
+                                                <span className="text-xl font-black text-indigo-400">${exp.total.toLocaleString()}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full uppercase">付款人</span>
-                                                <span className="text-sm font-bold text-slate-600">{exp.payer}</span>
+                                                <span className="text-[10px] font-black text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-full uppercase">付款人</span>
+                                                <span className="text-sm font-bold text-slate-400">{exp.payer}</span>
                                             </div>
-                                            <div className="pt-2 border-t border-slate-50">
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">分攤細項</div>
+                                            <div className="pt-2 border-t border-white/5">
+                                                <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2">分攤細項</div>
                                                 <div className="space-y-1.5">
                                                     {exp.shares.map((s, sIdx) => (
                                                         <div key={sIdx} className="flex justify-between items-center">
                                                             <span className="text-xs font-bold text-slate-500">{s.name}</span>
-                                                            <span className="text-xs font-black text-slate-700">${s.amount.toFixed(1)}</span>
+                                                            <span className="text-xs font-black text-slate-300">${s.amount.toFixed(1)}</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -603,24 +612,23 @@
                                     ))}
                                 </div>
                             </section>
-                            
                             <section className="space-y-3">
-                                <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest opacity-50 ml-1">還款建議</h3>
+                                <h3 className="font-black text-slate-500 text-[10px] uppercase tracking-widest opacity-50 ml-1">還款建議</h3>
                                 {transactions.length === 0 ? (
-                                    <div className="text-center py-10 text-slate-400 font-bold bg-white rounded-[32px] border border-slate-100">大家已經扯平囉！</div>
+                                    <div className="text-center py-10 text-slate-600 font-bold glass-card rounded-[32px]">大家已經扯平囉！</div>
                                 ) : transactions.map((t, idx) => (
-                                    <div key={idx} className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm flex items-center justify-between gap-4">
+                                    <div key={idx} className="glass-card p-5 rounded-[24px] flex items-center justify-between gap-4">
                                         <div className="flex-1 min-w-0">
-                                            <div className="text-[10px] text-slate-400 font-black mb-1">支付人</div>
-                                            <div className="font-black text-slate-800 truncate">{t.from}</div>
+                                            <div className="text-[10px] text-slate-600 font-black mb-1">支付人</div>
+                                            <div className="font-black text-slate-300 truncate">{t.from}</div>
                                         </div>
                                         <div className="flex flex-col items-center shrink-0">
-                                            <div className="text-indigo-600 font-black text-lg">${t.amount.toFixed(0)}</div>
-                                            <div className="w-12 h-0.5 bg-slate-100 relative mt-1"><div className="absolute right-0 -top-1 border-t-4 border-l-4 border-transparent border-l-indigo-300 w-2 h-2 rotate-45"></div></div>
+                                            <div className="text-indigo-400 font-black text-lg">${t.amount.toFixed(0)}</div>
+                                            <div className="w-12 h-0.5 bg-slate-800 relative mt-1"><div className="absolute right-0 -top-1 border-t-4 border-l-4 border-transparent border-l-indigo-600 w-2 h-2 rotate-45"></div></div>
                                         </div>
                                         <div className="flex-1 min-w-0 text-right">
-                                            <div className="text-[10px] text-slate-400 font-black mb-1">接收人</div>
-                                            <div className="font-black text-indigo-600 truncate">{t.to}</div>
+                                            <div className="text-[10px] text-slate-600 font-black mb-1">接收人</div>
+                                            <div className="font-black text-indigo-400 truncate">{t.to}</div>
                                         </div>
                                     </div>
                                 ))}
