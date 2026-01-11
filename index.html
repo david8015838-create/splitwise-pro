@@ -5,11 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SplitWise Pro - 高級版</title>
     
-    <!-- 樣式與框架載入 -->
+    <!-- 基礎框架載入 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Firebase SDK (使用相容性更好的版本與 UMD 載入方式) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     
     <style>
@@ -37,37 +43,32 @@
 <body>
     <div id="root"></div>
 
-    <!-- Firebase 核心載入腳本：徹底解決 require 錯誤 -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-
-        const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        // 將 Firebase 實例掛載到全域
-        window.FirebaseBridge = {
-            db, auth, doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp,
-            signInWithCustomToken, signInAnonymously, onAuthStateChanged
-        };
-
-        // 發送自定義事件通知 React
-        window.dispatchEvent(new CustomEvent('firebase-connected'));
-    </script>
-
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- 精確保留原始 UI 圖標 ---
+        // --- Firebase 初始化鎖定 ---
+        let db, auth;
+        try {
+            const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
+            if (!firebase.apps.length) {
+                const app = firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore(app);
+                auth = firebase.auth(app);
+            } else {
+                db = firebase.firestore();
+                auth = firebase.auth();
+            }
+        } catch (e) {
+            console.error("Firebase 配置加載失敗", e);
+        }
+
+        // --- 原始 UI 圖標組件 ---
         const Icon = ({ name, className = "w-5 h-5" }) => {
             const icons = {
                 plus: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>,
                 trash: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
                 arrowLeft: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>,
-                receipt: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
+                receipt: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
                 check: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>,
                 chart: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>,
                 equal: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 9h16M4 15h16" /></svg>,
@@ -104,7 +105,6 @@
             );
         };
 
-        // --- 核心邏輯：結算算法 ---
         function calculateSettlements(members = [], expenses = []) {
             const balances = {};
             members.forEach(m => balances[m.id] = 0);
@@ -145,7 +145,6 @@
             const [user, setUser] = useState(null);
             const [history, setHistory] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
-            const [isReady, setIsReady] = useState(false);
 
             const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
             const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -157,44 +156,39 @@
 
             const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'split-wise-pro-master';
 
-            // 1. 初始化 Firebase 監聽
             useEffect(() => {
-                const connect = async () => {
-                    if (!window.FirebaseBridge) return;
-                    const { auth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } = window.FirebaseBridge;
-                    
+                const initAuth = async () => {
+                    if (!auth) return;
                     try {
+                        let currentUser;
                         if (window.__initial_auth_token) {
-                            await signInWithCustomToken(auth, window.__initial_auth_token);
+                            const res = await auth.signInWithCustomToken(window.__initial_auth_token);
+                            currentUser = res.user;
                         } else {
-                            await signInAnonymously(auth);
+                            const res = await auth.signInAnonymously();
+                            currentUser = res.user;
                         }
-                        onAuthStateChanged(auth, setUser);
-                        setIsReady(true);
+                        setUser(currentUser);
                         
                         const savedHistory = localStorage.getItem(`${appId}_history`);
                         if (savedHistory) setHistory(JSON.parse(savedHistory));
                     } catch (e) { console.error("Auth Fail", e); }
                 };
-
-                window.addEventListener('firebase-connected', connect);
-                if (window.FirebaseBridge) connect();
-                return () => window.removeEventListener('firebase-connected', connect);
+                initAuth();
             }, []);
 
-            // 2. 房間數據即時同步
             useEffect(() => {
-                if (!isReady || !user || !roomCode || view === 'landing') return;
-                const { db, onSnapshot, doc } = window.FirebaseBridge;
-                const unsubscribe = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode), (snap) => {
-                    if (snap.exists()) {
+                if (!user || !roomCode || view === 'landing') return;
+                const roomRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('rooms').doc(roomCode);
+                const unsubscribe = roomRef.onSnapshot((snap) => {
+                    if (snap.exists) {
                         const data = snap.data();
                         setRoomData(data);
                         updateHistory(roomCode, data.name);
                     }
-                }, (err) => console.error("Snapshot Error", err));
+                });
                 return () => unsubscribe();
-            }, [isReady, user, roomCode, view]);
+            }, [user, roomCode, view]);
 
             const updateHistory = (code, name) => {
                 const newHistory = [{ code, name }, ...history.filter(h => h.code !== code)].slice(0, 5);
@@ -203,20 +197,19 @@
             };
 
             const createRoom = async () => {
-                if (isLoading || !isReady || !user) return;
+                if (isLoading || !user) return;
                 setIsLoading(true);
-                const { db, doc, setDoc, serverTimestamp } = window.FirebaseBridge;
                 try {
                     const code = Math.floor(100000 + Math.random() * 900000).toString();
                     const mId = Date.now().toString();
                     const data = { 
-                        name: roomName || '我的旅行帳本', 
+                        name: roomName || '我的週末旅行', 
                         code, 
                         members: [{ id: mId, name: firstMember || '本人' }], 
                         expenses: [],
-                        createdAt: serverTimestamp()
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code), data);
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('rooms').doc(code).set(data);
                     setRoomCode(code);
                     setView('room');
                 } catch (err) { alert("建立失敗"); }
@@ -224,12 +217,11 @@
             };
 
             const joinRoom = async (code) => {
-                if (isLoading || !isReady || !user || !code) return;
+                if (isLoading || !user || !code) return;
                 setIsLoading(true);
-                const { db, doc, getDoc } = window.FirebaseBridge;
                 try {
-                    const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code));
-                    if (snap.exists()) {
+                    const snap = await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('rooms').doc(code).get();
+                    if (snap.exists) {
                         setRoomCode(code);
                         setView('room');
                     } else { alert("找不到房間"); }
@@ -238,13 +230,12 @@
             };
 
             const updateDB = async (newData) => {
-                if (!isReady || !user) return;
-                const { db, doc, updateDoc } = window.FirebaseBridge;
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode), newData);
+                if (!user) return;
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('rooms').doc(roomCode).update(newData);
             };
 
             const handleAddExpense = async () => {
-                if (!newExp.title || !newExp.amount || !newExp.payerId) return alert("請完整填寫內容");
+                if (!newExp.title || !newExp.amount || !newExp.payerId) return alert("請填寫完整資訊");
                 const expense = { ...newExp, id: Date.now().toString(), amount: parseFloat(newExp.amount) };
                 await updateDB({ expenses: [...(roomData.expenses || []), expense] });
                 setView('room');
@@ -269,7 +260,7 @@
 
             const { transactions, balances } = useMemo(() => calculateSettlements(roomData.members, roomData.expenses), [roomData]);
 
-            // --- 視圖渲染：保持原始 UI ---
+            // --- 介面渲染 (100% 原始佈局鎖定) ---
             if (view === 'landing') {
                 return (
                     <div className="scroll-container bg-slate-950 text-white animate-in px-8 items-center justify-center">
@@ -371,15 +362,15 @@
                             </section>
                         </div>
 
-                        <Modal isOpen={isMemberModalOpen} onClose={() => setIsMemberModalOpen(false)} title="新增成員">
+                        <Modal isOpen={isMemberModalOpen} onClose={() => setIsMemberModalOpen(false)} title="新增夥伴">
                             <input autoFocus value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="名字" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xl" />
-                            <button onClick={handleAddMember} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-lg mt-5">確認</button>
+                            <button onClick={handleAddMember} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-lg mt-5">確認加入</button>
                         </Modal>
 
-                        <Modal isOpen={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)} title="確認刪除？">
+                        <Modal isOpen={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)} title="確定要刪除？">
                             <div className="grid grid-cols-2 gap-3 mt-4">
                                 <button onClick={() => setIsDeleteConfirmOpen(false)} className="p-4 bg-slate-100 text-slate-500 rounded-2xl font-black">取消</button>
-                                <button onClick={executeDelete} className="p-4 bg-rose-500 text-white rounded-2xl font-black">刪除</button>
+                                <button onClick={executeDelete} className="p-4 bg-rose-500 text-white rounded-2xl font-black">確定</button>
                             </div>
                         </Modal>
 
@@ -396,7 +387,7 @@
             if (view === 'add-expense') {
                 return (
                     <div className="h-full flex flex-col bg-[#F8FAFC]">
-                        <header className="shrink-0 flex items-center gap-4 p-6"><button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">記帳</h2></header>
+                        <header className="shrink-0 flex items-center gap-4 p-6"><button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">新增帳目</h2></header>
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-32">
                             <GlassCard className="space-y-4">
                                 <input value={newExp.title} onChange={e => setNewExp({...newExp, title: e.target.value})} placeholder="項目" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" />
@@ -406,10 +397,10 @@
                                 </div>
                             </GlassCard>
                             <section>
-                                <h3 className="font-black text-slate-800 mb-3 ml-1">誰付的？</h3>
+                                <h3 className="font-black text-slate-800 mb-3 ml-1">誰付的錢？</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {roomData.members.map(m => (
-                                        <button key={m.id} onClick={() => setNewExp({...newExp, payerId: m.id})} className={`px-5 py-2.5 rounded-2xl font-bold ${newExp.payerId === m.id ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500'}`}>{m.name}</button>
+                                        <button key={m.id} onClick={() => setNewExp({...newExp, payerId: m.id})} className={`px-5 py-2.5 rounded-2xl font-bold transition-all ${newExp.payerId === m.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-100'}`}>{m.name}</button>
                                     ))}
                                 </div>
                             </section>
@@ -446,7 +437,7 @@
                             </section>
                         </div>
                         <div className="shrink-0 p-6 bg-white/80 border-t border-slate-100 ios-inset">
-                            <button onClick={handleAddExpense} className="w-full bg-slate-900 text-white p-6 rounded-[32px] font-black text-xl shadow-2xl">儲存</button>
+                            <button onClick={handleAddExpense} className="w-full bg-slate-900 text-white p-6 rounded-[32px] font-black text-xl shadow-2xl">儲存這筆開銷</button>
                         </div>
                     </div>
                 );
@@ -455,7 +446,7 @@
             if (view === 'settle') {
                 return (
                     <div className="h-full flex flex-col bg-slate-50">
-                        <header className="shrink-0 flex items-center gap-4 p-6 bg-white/50 backdrop-blur-sm"><button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">結算</h2></header>
+                        <header className="shrink-0 flex items-center gap-4 p-6 bg-white/50 backdrop-blur-sm"><button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">分帳結算</h2></header>
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-10">
                             <section>
                                 <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 rounded-[40px] text-white shadow-2xl space-y-4">
@@ -469,7 +460,7 @@
                             </section>
                             <section className="space-y-4">
                                 {transactions.length === 0 ? (
-                                    <div className="text-center py-12 text-slate-400 font-bold bg-white rounded-[32px]">已結清！</div>
+                                    <div className="text-center py-12 text-slate-400 font-bold bg-white rounded-[32px] border border-slate-100">一切都平帳了！</div>
                                 ) : transactions.map((t, idx) => (
                                     <GlassCard key={idx} className="flex justify-between items-center py-8">
                                         <div className="text-center flex-1">
@@ -477,7 +468,7 @@
                                             <div className="font-black text-slate-800 text-lg">{roomData.members.find(m => m.id === t.from)?.name}</div>
                                         </div>
                                         <div className="flex flex-col items-center px-4">
-                                            <div className="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full font-black text-sm">${t.amount.toFixed(0)}</div>
+                                            <div className="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full font-black text-sm shadow-sm">${t.amount.toFixed(0)}</div>
                                             <div className="w-16 h-[2px] bg-slate-100 mt-2"></div>
                                         </div>
                                         <div className="text-center flex-1">
