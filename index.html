@@ -13,6 +13,7 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     
     <style>
@@ -59,23 +60,13 @@
 <body>
     <div id="root"></div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Firebase 配置
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'splitwise-pro-v2';
-
-        window.FB = { db, auth, appId, doc, setDoc, getDoc, onSnapshot, updateDoc, signInAnonymously, signInWithCustomToken, onAuthStateChanged };
-    </script>
-
     <script id="react-code" type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        const gun = Gun([
+            'https://gun-manhattan.herokuapp.com/gun',
+            'https://peer.wall.org/gun'
+        ]);
 
         const Icon = ({ name, className = "w-5 h-5" }) => {
             const icons = {
@@ -89,13 +80,14 @@
                 calculator: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
                 copy: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>,
                 x: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
-                share: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                share: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>,
+                list: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
             };
             return icons[name] || <span>•</span>;
         };
 
         const GlassCard = ({ children, className = "", onClick }) => (
-            <div onClick={onClick} className={`bg-white/90 backdrop-blur-xl rounded-[32px] border border-white/50 shadow-sm p-5 transition-all ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''} ${className}`}>
+            <div onClick={onClick} className={`bg-white rounded-[24px] border border-slate-100 shadow-sm p-5 transition-all ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''} ${className}`}>
                 {children}
             </div>
         );
@@ -122,25 +114,47 @@
 
         function calculateSettlements(members = [], expenses = []) {
             const balances = {};
-            members.forEach(m => balances[m.id] = 0);
+            const detailedExpenses = []; // 紀錄所有消費的完整分攤細節
+            
+            members.forEach(m => {
+                balances[m.id] = 0;
+            });
             
             expenses.forEach(exp => {
                 const total = parseFloat(exp.amount) || 0;
-                balances[exp.payerId] = (balances[exp.payerId] || 0) + total;
+                const payerName = members.find(m => m.id === exp.payerId)?.name || '未知';
+                balances[exp.payerId] += total;
                 
+                let shareList = []; // 存這筆帳每個人的金額
+
                 if (exp.splitMode === 'exact') {
                     Object.entries(exp.customAmounts || {}).forEach(([pId, amt]) => {
-                        if (balances[pId] !== undefined) balances[pId] -= parseFloat(amt || 0);
+                        const share = parseFloat(amt || 0);
+                        if (balances[pId] !== undefined) {
+                            balances[pId] -= share;
+                            shareList.push({ name: members.find(m => m.id === pId)?.name || '未知', amount: share });
+                        }
                     });
                 } else {
                     const participants = exp.participants || [];
                     if (participants.length > 0) {
                         const splitAmount = total / participants.length;
                         participants.forEach(pId => { 
-                            if (balances[pId] !== undefined) balances[pId] -= splitAmount; 
+                            if (balances[pId] !== undefined) {
+                                balances[pId] -= splitAmount;
+                                shareList.push({ name: members.find(m => m.id === pId)?.name || '未知', amount: splitAmount });
+                            }
                         });
                     }
                 }
+
+                detailedExpenses.push({
+                    title: exp.title,
+                    total: total,
+                    payer: payerName,
+                    mode: exp.splitMode === 'exact' ? '手動分攤' : '平均分攤',
+                    shares: shareList
+                });
             });
 
             const transactions = [];
@@ -148,13 +162,16 @@
             const debtors = Object.entries(balances).filter(([_, b]) => b < -0.01).map(([id, b]) => ({id, amount: Math.abs(b)}));
             
             let i = 0, j = 0;
-            while (i < debtors.length && j < creditors.length) {
-                const pay = Math.min(debtors[i].amount, creditors[j].amount);
-                transactions.push({ from: debtors[i].id, to: creditors[j].id, amount: pay });
-                debtors[i].amount -= pay; creditors[j].amount -= pay;
-                if (debtors[i].amount < 0.01) i++; if (creditors[j].amount < 0.01) j++;
+            const tempDebtors = JSON.parse(JSON.stringify(debtors));
+            const tempCreditors = JSON.parse(JSON.stringify(creditors));
+
+            while (i < tempDebtors.length && j < tempCreditors.length) {
+                const pay = Math.min(tempDebtors[i].amount, tempCreditors[j].amount);
+                transactions.push({ from: tempDebtors[i].id, to: tempCreditors[j].id, amount: pay });
+                tempDebtors[i].amount -= pay; tempCreditors[j].amount -= pay;
+                if (tempDebtors[i].amount < 0.01) i++; if (tempCreditors[j].amount < 0.01) j++;
             }
-            return { transactions, balances };
+            return { transactions, balances, detailedExpenses };
         }
 
         const App = () => {
@@ -164,7 +181,6 @@
             const [roomCode, setRoomCode] = useState('');
             const [roomData, setRoomData] = useState({ members: [], expenses: [], name: '' });
             const [history, setHistory] = useState([]);
-            const [user, setUser] = useState(null);
             
             const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
             const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -181,57 +197,38 @@
             });
             const [newMemberName, setNewMemberName] = useState('');
 
-            // 初始化 Auth
             useEffect(() => {
-                if (!window.FB) return;
-                const { auth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = window.FB;
-                
-                const initAuth = async () => {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                };
-                initAuth();
-
-                const unsubscribe = onAuthStateChanged(auth, setUser);
                 const savedHistory = localStorage.getItem('splitwise_pro_history_v2');
                 if (savedHistory) setHistory(JSON.parse(savedHistory));
-                
-                return () => unsubscribe();
+                if (window.location.hash) {
+                    const code = window.location.hash.replace('#', '');
+                    joinRoom(code);
+                }
             }, []);
 
-            // 實時監聽房間數據
             useEffect(() => {
-                if (!user || !roomCode || !window.FB) return;
-                const { db, appId, doc, onSnapshot } = window.FB;
-                
-                const roomDoc = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
-                const unsubscribe = onSnapshot(roomDoc, (docSnap) => {
-                    if (docSnap.exists()) {
-                        setRoomData(docSnap.data());
+                if (!roomCode) return;
+                const roomNode = gun.get('splitwise-pro-v2').get(roomCode);
+                const unsubscribe = roomNode.on((data) => {
+                    if (data) {
+                        try {
+                            const parsedData = JSON.parse(data.content);
+                            setRoomData(parsedData);
+                        } catch (e) { console.error("解析錯誤", e); }
                     }
-                }, (error) => console.error("Snapshot error:", error));
-
-                return () => unsubscribe();
-            }, [user, roomCode]);
+                });
+                return () => roomNode.off();
+            }, [roomCode]);
 
             const saveRoomToCloud = async (data) => {
-                if (!user || !window.FB) return;
-                const { db, appId, doc, setDoc } = window.FB;
-                
-                const roomDoc = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', data.code);
-                await setDoc(roomDoc, data);
-
-                // 更新歷史清單 (本地記錄)
+                const roomNode = gun.get('splitwise-pro-v2').get(data.code);
+                roomNode.put({ content: JSON.stringify(data), lastUpdate: Date.now() });
                 const newHistory = [{ code: data.code, name: data.name }, ...history.filter(h => h.code !== data.code)].slice(0, 10);
                 setHistory(newHistory);
                 localStorage.setItem('splitwise_pro_history_v2', JSON.stringify(newHistory));
             };
 
             const createRoom = async () => {
-                if (!user) return;
                 const code = Math.floor(100000 + Math.random() * 900000).toString();
                 const mId = 'm_' + Date.now();
                 const data = {
@@ -241,31 +238,25 @@
                     expenses: []
                 };
                 setRoomCode(code);
+                window.location.hash = code;
                 setRoomData(data);
                 await saveRoomToCloud(data);
                 setView('room');
             };
 
             const joinRoom = async (code) => {
-                if (!code || !user || !window.FB) return;
-                const { db, appId, doc, getDoc } = window.FB;
-                
-                const roomDoc = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code);
-                const docSnap = await getDoc(roomDoc);
-                
-                if (docSnap.exists()) {
-                    setRoomCode(code);
-                    setRoomData(docSnap.data());
-                    setView('room');
-                    
-                    // 更新歷史記錄
-                    const data = docSnap.data();
-                    const newHistory = [{ code: data.code, name: data.name }, ...history.filter(h => h.code !== data.code)].slice(0, 10);
-                    setHistory(newHistory);
-                    localStorage.setItem('splitwise_pro_history_v2', JSON.stringify(newHistory));
-                } else {
-                    alert("找不到此房號，請確認輸入是否正確");
-                }
+                if (!code) return;
+                setRoomCode(code);
+                window.location.hash = code;
+                gun.get('splitwise-pro-v2').get(code).once((data) => {
+                    if (data) {
+                        const parsedData = JSON.parse(data.content);
+                        setRoomData(parsedData);
+                        setView('room');
+                    } else if (view === 'landing') {
+                        setView('room');
+                    }
+                });
             };
 
             const deleteHistory = (code, e) => {
@@ -276,15 +267,10 @@
             };
 
             const copyRoomCode = () => {
-                const textArea = document.createElement("textarea");
-                textArea.value = roomCode;
-                document.body.appendChild(textArea);
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    alert("房號已複製: " + roomCode);
-                } catch (err) {}
-                document.body.removeChild(textArea);
+                const fullUrl = window.location.origin + window.location.pathname + '#' + roomCode;
+                navigator.clipboard.writeText(fullUrl).then(() => {
+                    alert("房間連結已複製！");
+                });
             };
 
             const handleAddExpense = async () => {
@@ -292,19 +278,18 @@
                     alert("請完整填寫名稱、金額與付款人");
                     return;
                 }
-                
+                const amount = parseFloat(newExp.amount);
                 if (newExp.splitMode === 'exact') {
                     const sum = Object.values(newExp.customAmounts).reduce((a, b) => a + (parseFloat(b) || 0), 0);
-                    if (Math.abs(sum - parseFloat(newExp.amount)) > 0.1) {
-                        alert(`金額不符！手動輸入總和為 $${sum}，但支出總額為 $${newExp.amount}`);
+                    if (Math.abs(sum - amount) > 0.1) {
+                        alert(`金額不符！手動分配總和為 $${sum}`);
                         return;
                     }
                 } else if (newExp.participants.length === 0) {
                     alert("請選擇至少一位分擔成員");
                     return;
                 }
-
-                const expense = { ...newExp, id: 'e_' + Date.now(), amount: parseFloat(newExp.amount) };
+                const expense = { ...newExp, id: 'e_' + Date.now(), amount: amount };
                 const newData = { ...roomData, expenses: [...roomData.expenses, expense] };
                 await saveRoomToCloud(newData);
                 setView('room');
@@ -314,12 +299,6 @@
             const handleAddMember = async () => {
                 const trimmedName = newMemberName.trim();
                 if (!trimmedName) return;
-                
-                if (roomData.members.some(m => m.name === trimmedName)) {
-                    alert("成員名字重複囉！");
-                    return;
-                }
-
                 const member = { id: 'm_' + Date.now(), name: trimmedName };
                 const newData = { ...roomData, members: [...roomData.members, member] };
                 await saveRoomToCloud(newData);
@@ -332,10 +311,6 @@
                 if (deleteType === 'expense') {
                     newData = { ...roomData, expenses: roomData.expenses.filter(e => e.id !== itemToDelete) };
                 } else {
-                    if (roomData.members.length <= 1) {
-                        alert("至少需要保留一位成員");
-                        return;
-                    }
                     newData = { ...roomData, members: roomData.members.filter(m => m.id !== itemToDelete) };
                 }
                 await saveRoomToCloud(newData);
@@ -343,46 +318,28 @@
                 setItemToDelete(null);
             };
 
-            const { transactions, balances } = useMemo(() => 
+            const { transactions, balances, detailedExpenses } = useMemo(() => 
                 calculateSettlements(roomData.members, roomData.expenses), 
                 [roomData]
             );
 
             const shareSettlement = async () => {
                 if (transactions.length === 0) {
-                    alert("目前沒有需要結算的款項喔！");
+                    alert("目前沒有結算資料");
                     return;
                 }
-
-                let text = `📊 SplitWise Pro - ${roomData.name} 結算報告\n\n`;
-                text += `房號：${roomCode}\n`;
-                text += `--------------------------\n`;
+                let text = `📊 SplitWise Pro - ${roomData.name}\n\n`;
                 text += `✅ 還款建議：\n`;
-                
                 transactions.forEach(t => {
                     const from = roomData.members.find(m => m.id === t.from)?.name;
                     const to = roomData.members.find(m => m.id === t.to)?.name;
                     text += `${from} ➡ 支付 $${t.amount.toFixed(0)} 給 ${to}\n`;
                 });
-                
-                text += `\n--------------------------\n`;
-                text += `Powered by SplitWise Pro`;
-
                 if (navigator.share) {
-                    try {
-                        await navigator.share({
-                            title: `SplitWise Pro - ${roomData.name}`,
-                            text: text
-                        });
-                    } catch (err) {}
+                    try { await navigator.share({ title: `SplitWise Pro`, text: text }); } catch (err) {}
                 } else {
-                    const textArea = document.createElement("textarea");
-                    textArea.value = text;
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                    alert("結算內容已複製到剪貼簿，趕快傳到群組吧！");
+                    navigator.clipboard.writeText(text);
+                    alert("已複製到剪貼簿");
                 }
             };
 
@@ -397,40 +354,31 @@
                                 <h1 className="text-4xl font-black tracking-tight flex items-center justify-center gap-2">
                                     SplitWise <span className="text-indigo-400">Pro</span>
                                 </h1>
-                                <div className="text-slate-500 font-black text-[9px] tracking-[0.4em] uppercase opacity-60 mt-2">
-                                    BY <span className="text-indigo-400/80">OWEN</span>
-                                </div>
-                                <p className="text-slate-500 font-bold mt-4 text-sm">簡單、實時、高級的分帳工具</p>
+                                <p className="text-slate-500 font-bold mt-4 text-sm">P2P 即時同步 • 靜態託管專用</p>
                             </div>
                         </div>
-
-                        <div className="w-full max-w-sm space-y-6 pb-12">
+                        <div className="w-full max-sm space-y-6 pb-12 text-slate-900">
                             <div className="space-y-3">
-                                <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder="活動名稱" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-bold focus:border-indigo-500 transition-all placeholder:text-slate-700" />
-                                <input value={firstMember} onChange={e => setFirstMember(e.target.value)} placeholder="您的暱稱" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-bold focus:border-indigo-500 transition-all placeholder:text-slate-700" />
-                                <button onClick={createRoom} className="w-full bg-indigo-600 p-4 rounded-2xl font-black hover:bg-indigo-500 btn-active transition-colors shadow-lg shadow-indigo-500/20">建立新房間</button>
+                                <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder="活動名稱" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-bold focus:border-indigo-500 transition-all placeholder:text-slate-700 text-white" />
+                                <input value={firstMember} onChange={e => setFirstMember(e.target.value)} placeholder="您的暱稱" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-bold focus:border-indigo-500 transition-all placeholder:text-slate-700 text-white" />
+                                <button onClick={createRoom} className="w-full bg-indigo-600 text-white p-4 rounded-2xl font-black hover:bg-indigo-500 btn-active transition-colors">建立房間</button>
                             </div>
-
-                            <div className="flex items-center gap-4 py-2"><div className="h-px bg-slate-800 flex-1"></div><span className="text-slate-600 font-black text-[10px] uppercase tracking-widest">輸入房號加入</span><div className="h-px bg-slate-800 flex-1"></div></div>
-                            
+                            <div className="flex items-center gap-4 py-2"><div className="h-px bg-slate-800 flex-1"></div><span className="text-slate-600 font-black text-[10px] uppercase tracking-widest">輸入房號</span><div className="h-px bg-slate-800 flex-1"></div></div>
                             <div className="flex gap-2">
-                                <input value={roomCode} onChange={e => setRoomCode(e.target.value)} placeholder="6 位數字" className="flex-1 p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-black text-center tracking-widest focus:border-indigo-500 w-0" />
-                                <button onClick={() => joinRoom(roomCode)} className="bg-slate-100 text-slate-900 px-6 rounded-2xl font-black hover:bg-white btn-active transition-colors shrink-0">進入</button>
+                                <input value={roomCode} onChange={e => setRoomCode(e.target.value)} placeholder="6 位數字" className="flex-1 p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-black text-center tracking-widest focus:border-indigo-500 text-white" />
+                                <button onClick={() => joinRoom(roomCode)} className="bg-slate-100 text-slate-900 px-6 rounded-2xl font-black btn-active shrink-0">進入</button>
                             </div>
-
                             {history.length > 0 && (
-                                <div className="space-y-3 animate-in pt-4">
+                                <div className="space-y-3 pt-4">
                                     <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] ml-1">最近訪問</h4>
                                     <div className="space-y-2">
                                         {history.map(h => (
                                             <div key={h.code} className="flex gap-2 group">
-                                                <button onClick={() => joinRoom(h.code)} className="flex-1 flex items-center justify-between p-4 bg-slate-900/50 border border-slate-800 rounded-2xl hover:border-slate-700 hover:bg-slate-900 transition-all min-w-0">
+                                                <button onClick={() => joinRoom(h.code)} className="flex-1 flex items-center justify-between p-4 bg-slate-900/50 border border-slate-800 rounded-2xl hover:border-slate-700 transition-all min-w-0">
                                                     <span className="font-bold text-slate-300 truncate mr-2">{h.name}</span>
                                                     <span className="text-indigo-400 font-black tracking-widest text-sm shrink-0">{h.code}</span>
                                                 </button>
-                                                <button onClick={(e) => deleteHistory(h.code, e)} className="p-4 text-slate-600 hover:text-rose-500 transition-colors rounded-2xl border border-slate-800 shrink-0">
-                                                    <Icon name="trash" className="w-4 h-4" />
-                                                </button>
+                                                <button onClick={(e) => deleteHistory(h.code, e)} className="p-4 text-slate-600 hover:text-rose-500 rounded-2xl border border-slate-800 shrink-0"><Icon name="trash" className="w-4 h-4" /></button>
                                             </div>
                                         ))}
                                     </div>
@@ -444,43 +392,41 @@
             if (view === 'room') {
                 return (
                     <div className="h-full flex flex-col bg-[#F8FAFC]">
-                        <header className="shrink-0 bg-white/80 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-slate-100 z-50">
-                            <button onClick={() => setView('landing')} className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:bg-slate-100"><Icon name="arrowLeft" /></button>
+                        <header className="shrink-0 bg-white px-6 py-4 flex items-center justify-between border-b border-slate-100 z-50">
+                            <button onClick={() => { setView('landing'); window.location.hash = ''; }} className="p-2 bg-slate-50 rounded-xl text-slate-400"><Icon name="arrowLeft" /></button>
                             <div className="text-center px-2 flex-1 min-w-0">
-                                <h2 className="font-black text-slate-800 leading-tight truncate">{roomData.name}</h2>
-                                <button onClick={copyRoomCode} className="flex items-center justify-center gap-1.5 mx-auto group active:scale-95 transition-all">
+                                <h2 className="font-black text-slate-800 leading-tight truncate">{roomData.name || '載入中...'}</h2>
+                                <button onClick={copyRoomCode} className="flex items-center justify-center gap-1.5 mx-auto active:scale-95 transition-all">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">房號 {roomCode}</span>
-                                    <Icon name="copy" className="w-3 h-3 text-indigo-400 group-hover:text-indigo-600" />
+                                    <Icon name="copy" className="w-3 h-3 text-indigo-400" />
                                 </button>
                             </div>
                             <button onClick={() => setView('settle')} className="p-2 bg-indigo-600 text-white rounded-xl premium-shadow btn-active"><Icon name="receipt" /></button>
                         </header>
-
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-32">
                             <section>
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="font-black text-slate-900 text-lg">參與成員</h3>
-                                    <button onClick={() => setIsMemberModalOpen(true)} className="text-indigo-600 font-black text-sm hover:text-indigo-800">+ 新增</button>
+                                    <button onClick={() => setIsMemberModalOpen(true)} className="text-indigo-600 font-black text-sm">+ 新增</button>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                     {roomData.members.map(m => (
-                                        <div key={m.id} className="bg-white border border-slate-100 px-4 py-2 rounded-2xl flex items-center gap-3 shadow-sm group hover:border-indigo-100 transition-colors">
+                                        <div key={m.id} className="bg-white border border-slate-100 px-4 py-2 rounded-2xl flex items-center gap-3 shadow-sm group">
                                             <span className="font-bold text-slate-700">{m.name}</span>
-                                            <button onClick={() => { setItemToDelete(m.id); setDeleteType('member'); setIsDeleteConfirmOpen(true); }} className="text-slate-300 hover:text-rose-500 transition-colors"><Icon name="trash" className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => { setItemToDelete(m.id); setDeleteType('member'); setIsDeleteConfirmOpen(true); }} className="text-slate-300 hover:text-rose-500"><Icon name="trash" className="w-3.5 h-3.5" /></button>
                                         </div>
                                     ))}
                                 </div>
                             </section>
-
                             <section>
                                 <h3 className="font-black text-slate-900 text-lg mb-4">支出明細</h3>
                                 <div className="space-y-4">
                                     {roomData.expenses.length === 0 ? (
-                                        <div className="text-center py-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[40px]">
-                                            <p className="text-slate-400 font-bold">還沒有任何支出喔！點右下角開始</p>
+                                        <div className="text-center py-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[32px]">
+                                            <p className="text-slate-400 font-bold">目前沒有資料</p>
                                         </div>
                                     ) : [...roomData.expenses].reverse().map(exp => (
-                                        <GlassCard key={exp.id} className="group hover:shadow-md transition-shadow">
+                                        <GlassCard key={exp.id}>
                                             <div className="flex justify-between items-start gap-2">
                                                 <div className="flex gap-3 min-w-0">
                                                     <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shadow-inner shrink-0"><Icon name="receipt" /></div>
@@ -493,7 +439,7 @@
                                                 </div>
                                                 <div className="text-right flex flex-col items-end gap-1 shrink-0">
                                                     <span className="text-xl font-black text-slate-900">${parseFloat(exp.amount).toLocaleString()}</span>
-                                                    <button onClick={() => { setItemToDelete(exp.id); setDeleteType('expense'); setIsDeleteConfirmOpen(true); }} className="text-rose-400 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1"><Icon name="trash" className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setItemToDelete(exp.id); setDeleteType('expense'); setIsDeleteConfirmOpen(true); }} className="text-rose-400 p-1"><Icon name="trash" className="w-4 h-4" /></button>
                                                 </div>
                                             </div>
                                         </GlassCard>
@@ -501,29 +447,25 @@
                                 </div>
                             </section>
                         </div>
-
                         <Modal isOpen={isMemberModalOpen} onClose={() => setIsMemberModalOpen(false)} title="新增小夥伴">
                             <div className="space-y-5">
-                                <p className="text-slate-400 text-sm font-bold">為這次活動加入新的參與者</p>
-                                <input autoFocus value={newMemberName} onChange={e => setNewMemberName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddMember()} placeholder="輸入名字..." className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xl text-slate-800 focus:bg-white focus:border-indigo-500 transition-all" />
-                                <button onClick={handleAddMember} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-lg btn-active shadow-lg shadow-indigo-200 transition-all">確認加入</button>
+                                <input autoFocus value={newMemberName} onChange={e => setNewMemberName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddMember()} placeholder="輸入名字..." className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xl text-slate-800" />
+                                <button onClick={handleAddMember} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-lg btn-active">確認加入</button>
                             </div>
                         </Modal>
-
                         <Modal isOpen={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)} title="確定要刪除嗎？">
                             <div className="space-y-6">
-                                <p className="text-slate-500 font-bold leading-relaxed">刪除後數據將無法恢復，這可能會影響到目前的結算結果。</p>
+                                <p className="text-slate-500 font-bold">刪除後數據將透過 P2P 同步給其他人，無法復原。</p>
                                 <div className="grid grid-cols-2 gap-3">
                                     <button onClick={() => setIsDeleteConfirmOpen(false)} className="p-4 bg-slate-100 text-slate-500 rounded-2xl font-black btn-active">取消</button>
-                                    <button onClick={executeDelete} className="p-4 bg-rose-500 text-white rounded-2xl font-black btn-active shadow-lg shadow-rose-200">確定刪除</button>
+                                    <button onClick={executeDelete} className="p-4 bg-rose-500 text-white rounded-2xl font-black btn-active">確定刪除</button>
                                 </div>
                             </div>
                         </Modal>
-
                         <button onClick={() => { 
                             setNewExp({ title: '', amount: '', payerId: roomData.members[0]?.id, participants: roomData.members.map(m => m.id), splitMode: 'equal', customAmounts: {} });
                             setView('add-expense');
-                        }} className="fixed bottom-10 right-8 w-16 h-16 bg-indigo-600 text-white rounded-[24px] shadow-2xl premium-shadow flex items-center justify-center btn-active z-50 hover:bg-indigo-500 transition-colors">
+                        }} className="fixed bottom-10 right-8 w-16 h-16 bg-indigo-600 text-white rounded-[24px] shadow-2xl premium-shadow flex items-center justify-center btn-active z-50">
                             <Icon name="plus" className="w-8 h-8" />
                         </button>
                     </div>
@@ -533,14 +475,12 @@
             if (view === 'add-expense') {
                 const totalCustom = Object.values(newExp.customAmounts).reduce((a, b) => a + (parseFloat(b) || 0), 0);
                 const diff = (parseFloat(newExp.amount) || 0) - totalCustom;
-
                 return (
                     <div className="h-full flex flex-col bg-[#F8FAFC]">
-                        <header className="shrink-0 flex items-center gap-4 p-6 bg-white/50 backdrop-blur-sm">
-                            <button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm"><Icon name="arrowLeft" /></button>
+                        <header className="shrink-0 flex items-center gap-4 p-6 bg-white">
+                            <button onClick={() => setView('room')} className="p-2 bg-slate-50 rounded-xl shadow-sm"><Icon name="arrowLeft" /></button>
                             <h2 className="text-2xl font-black text-slate-900">記一筆帳</h2>
                         </header>
-
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-32">
                             <GlassCard className="space-y-4">
                                 <input value={newExp.title} onChange={e => setNewExp({...newExp, title: e.target.value})} placeholder="這筆錢花在哪？" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-lg" />
@@ -549,7 +489,6 @@
                                     <input type="number" inputMode="decimal" value={newExp.amount} onChange={e => setNewExp({...newExp, amount: e.target.value})} placeholder="金額" className="w-full p-4 pl-10 bg-slate-50 rounded-2xl outline-none font-black text-3xl text-indigo-600" />
                                 </div>
                             </GlassCard>
-
                             <section>
                                 <h3 className="font-black text-slate-800 mb-3 ml-1">誰付的錢？</h3>
                                 <div className="flex flex-wrap gap-2">
@@ -560,7 +499,6 @@
                                     ))}
                                 </div>
                             </section>
-
                             <section>
                                 <div className="flex justify-between items-end mb-4 ml-1">
                                     <h3 className="font-black text-slate-800">分攤模式</h3>
@@ -573,7 +511,6 @@
                                         </button>
                                     </div>
                                 </div>
-
                                 {newExp.splitMode === 'equal' ? (
                                     <div className="grid grid-cols-2 gap-3 animate-in">
                                         {roomData.members.map(m => {
@@ -609,8 +546,8 @@
                                 )}
                             </section>
                         </div>
-                        <div className="shrink-0 p-6 bg-white/80 backdrop-blur-md border-t border-slate-100 ios-inset">
-                            <button onClick={handleAddExpense} className="w-full bg-slate-900 text-white p-6 rounded-[32px] font-black text-xl btn-active shadow-2xl">儲存這筆開銷</button>
+                        <div className="shrink-0 p-6 bg-white border-t border-slate-100 ios-inset">
+                            <button onClick={handleAddExpense} className="w-full bg-slate-900 text-white p-6 rounded-[32px] font-black text-xl btn-active">儲存開銷</button>
                         </div>
                     </div>
                 );
@@ -619,86 +556,85 @@
             if (view === 'settle') {
                 return (
                     <div className="h-full flex flex-col bg-slate-50">
-                        <header className="shrink-0 flex items-center justify-between p-6 bg-white/50 backdrop-blur-sm">
+                        <header className="shrink-0 flex items-center justify-between p-6 bg-white border-b border-slate-100">
                             <div className="flex items-center gap-4">
-                                <button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm hover:bg-slate-50 transition-colors"><Icon name="arrowLeft" /></button>
+                                <button onClick={() => setView('room')} className="p-2 bg-slate-50 rounded-xl shadow-sm"><Icon name="arrowLeft" /></button>
                                 <h2 className="text-2xl font-black text-slate-900">結算報告</h2>
                             </div>
-                            <button onClick={shareSettlement} className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-md btn-active hover:bg-indigo-500 transition-colors">
+                            <button onClick={shareSettlement} className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-md btn-active">
                                 <Icon name="share" className="w-5 h-5" />
                             </button>
                         </header>
-
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-10">
+                            {/* 1. 成員收支總覽 (簡化版) */}
                             <section>
-                                <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest mb-4 ml-1 opacity-50">目前的收支彙整</h3>
-                                <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 rounded-[40px] text-white shadow-2xl relative overflow-hidden">
-                                    <div className="space-y-4 relative z-10">
-                                        {roomData.members.map(m => (
-                                            <div key={m.id} className="flex justify-between items-center">
-                                                <span className="font-bold text-lg truncate mr-4">{m.name}</span>
-                                                <span className={`text-xl font-black shrink-0 ${(balances[m.id] || 0) >= 0 ? 'text-white' : 'text-indigo-200 opacity-80'}`}>
-                                                    {(balances[m.id] || 0) >= 0 ? '+' : ''}{(balances[m.id] || 0).toFixed(0)}
+                                <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest mb-3 ml-1 opacity-50">成員收支總覽</h3>
+                                <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100 space-y-4">
+                                    {roomData.members.map(m => {
+                                        const balance = balances[m.id] || 0;
+                                        return (
+                                            <div key={m.id} className="flex justify-between items-center border-b border-slate-50 last:border-0 pb-3 last:pb-0">
+                                                <span className="font-bold text-slate-700">{m.name}</span>
+                                                <span className={`font-black text-lg ${balance >= 0 ? 'text-green-600' : 'text-rose-500'}`}>
+                                                    {balance >= 0 ? '+' : ''}{balance.toFixed(0)}
                                                 </span>
                                             </div>
-                                        ))}
-                                    </div>
-                                    <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
+                                        );
+                                    })}
                                 </div>
                             </section>
-
-                            <section className="space-y-4">
-                                <div className="flex justify-between items-center mb-4 ml-1">
-                                    <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest opacity-50">還款建議</h3>
-                                    <button onClick={shareSettlement} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline transition-all">點此快速分享文字版本</button>
-                                </div>
+                            
+                            {/* 還款建議 */}
+                            <section className="space-y-3">
+                                <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest opacity-50 ml-1">還款建議</h3>
                                 {transactions.length === 0 ? (
-                                    <div className="text-center py-12 text-slate-400 font-bold bg-white rounded-[32px] border border-slate-100">大家已經扯平囉！</div>
+                                    <div className="text-center py-10 text-slate-400 font-bold bg-white rounded-[32px] border border-slate-100">大家已經扯平囉！</div>
                                 ) : transactions.map((t, idx) => (
-                                    <GlassCard key={idx} className="flex justify-between items-center py-8 gap-2">
-                                        <div className="text-center flex-1 min-w-0"><div className="text-[9px] text-slate-400 font-black mb-1 uppercase tracking-widest">支付人</div><div className="font-black text-slate-800 text-lg truncate">{roomData.members.find(m => m.id === t.from)?.name}</div></div>
-                                        <div className="flex flex-col items-center px-2 space-y-2 shrink-0">
-                                            <div className="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full font-black text-sm shadow-sm border border-indigo-100">${t.amount.toFixed(0)}</div>
-                                            <div className="w-16 h-[2px] bg-slate-100 relative"><div className="absolute right-0 -top-1 border-t-4 border-l-4 border-transparent border-l-indigo-300 w-2 h-2 rotate-45"></div></div>
+                                    <div key={idx} className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm flex items-center justify-between gap-4">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-[10px] text-slate-400 font-black mb-1">支付人</div>
+                                            <div className="font-black text-slate-800 truncate">{roomData.members.find(m => m.id === t.from)?.name}</div>
                                         </div>
-                                        <div className="text-center flex-1 min-w-0"><div className="text-[9px] text-slate-400 font-black mb-1 uppercase tracking-widest">接收人</div><div className="font-black text-indigo-600 text-lg truncate">{roomData.members.find(m => m.id === t.to)?.name}</div></div>
-                                    </GlassCard>
+                                        <div className="flex flex-col items-center shrink-0">
+                                            <div className="text-indigo-600 font-black text-lg">${t.amount.toFixed(0)}</div>
+                                            <div className="w-12 h-0.5 bg-slate-100 relative mt-1"><div className="absolute right-0 -top-1 border-t-4 border-l-4 border-transparent border-l-indigo-300 w-2 h-2 rotate-45"></div></div>
+                                        </div>
+                                        <div className="flex-1 min-w-0 text-right">
+                                            <div className="text-[10px] text-slate-400 font-black mb-1">接收人</div>
+                                            <div className="font-black text-indigo-600 truncate">{roomData.members.find(m => m.id === t.to)?.name}</div>
+                                        </div>
+                                    </div>
                                 ))}
                             </section>
 
+                            {/* 2. 所有消費明細 */}
                             <section className="space-y-4">
-                                <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest mb-4 ml-1 opacity-50">消費詳細拆分</h3>
-                                {roomData.expenses.length === 0 ? (
-                                    <div className="text-center py-8 text-slate-400 font-bold">尚無消費紀錄</div>
-                                ) : roomData.expenses.map(exp => {
-                                    const payerName = roomData.members.find(m => m.id === exp.payerId)?.name || '未知';
-                                    let breakdown = [];
-                                    if (exp.splitMode === 'exact') {
-                                        breakdown = Object.entries(exp.customAmounts || {}).filter(([_, amt]) => parseFloat(amt) > 0).map(([pId, amt]) => ({ name: roomData.members.find(m => m.id === pId)?.name || '未知', amt: parseFloat(amt) }));
-                                    } else {
-                                        const perAmt = parseFloat(exp.amount) / (exp.participants.length || 1);
-                                        breakdown = exp.participants.map(pId => ({ name: roomData.members.find(m => m.id === pId)?.name || '未知', amt: perAmt }));
-                                    }
-                                    return (
-                                        <div key={exp.id} className="bg-white rounded-[32px] p-6 border border-slate-100 shadow-sm space-y-4">
-                                            <div className="flex justify-between items-center border-b border-slate-50 pb-4 gap-2">
-                                                <div className="min-w-0">
-                                                    <h4 className="font-black text-slate-800 truncate">{exp.title}</h4>
-                                                    <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mt-1 truncate">由 {payerName} 代付</p>
+                                <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest opacity-50 ml-1">所有消費明細</h3>
+                                {detailedExpenses.length === 0 ? (
+                                    <div className="text-center py-10 text-slate-400 font-bold bg-white rounded-[32px] border border-slate-100">目前尚無支出明細</div>
+                                ) : [...detailedExpenses].reverse().map((exp, idx) => (
+                                    <div key={idx} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <h4 className="font-black text-slate-800 text-lg">{exp.title}</h4>
+                                                <div className="text-xs font-bold text-slate-400 mt-1">
+                                                    {exp.payer} 先付 • {exp.mode}
                                                 </div>
-                                                <div className="text-right shrink-0"><div className="font-black text-slate-900">${parseFloat(exp.amount).toLocaleString()}</div></div>
                                             </div>
-                                            <div className="grid grid-cols-1 gap-3">
-                                                {breakdown.map((item, i) => (
-                                                    <div key={i} className="flex justify-between items-center text-sm">
-                                                        <div className="flex items-center gap-2 text-slate-500 font-bold min-w-0"><div className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0"></div><span className="truncate">{item.name}</span></div>
-                                                        <div className="text-slate-700 font-black shrink-0">${item.amt.toFixed(1)}</div>
-                                                    </div>
-                                                ))}
+                                            <div className="text-right">
+                                                <div className="text-xl font-black text-slate-900">${exp.total.toFixed(0)}</div>
                                             </div>
                                         </div>
-                                    );
-                                })}
+                                        <div className="bg-slate-50 rounded-2xl p-4 space-y-2">
+                                            {exp.shares.map((s, sIdx) => (
+                                                <div key={sIdx} className="flex justify-between text-xs font-bold text-slate-600">
+                                                    <span>{s.name}</span>
+                                                    <span>分攤 ${s.amount.toFixed(1)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
                             </section>
                         </div>
                     </div>
