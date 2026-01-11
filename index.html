@@ -20,7 +20,7 @@
             font-family: 'Noto Sans TC', sans-serif; 
             -webkit-tap-highlight-color: transparent; 
             background-color: #F8FAFC;
-            overflow: hidden; /* 防止整體 body 捲動導致 UI 彈跳 */
+            overflow: hidden; 
             width: 100vw;
             height: 100dvh;
         }
@@ -49,9 +49,10 @@
             overflow-y: auto;
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
         }
         
-        /* 隱藏捲軸但保留功能 */
         .scroll-hide::-webkit-scrollbar { display: none; }
     </style>
 </head>
@@ -63,7 +64,8 @@
         import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
+        // 從環境變數獲取 Firebase 配置
+        const firebaseConfig = window.__firebase_config ? JSON.parse(window.__firebase_config) : {};
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
@@ -168,6 +170,7 @@
             const [roomData, setRoomData] = useState({ members: [], expenses: [] });
             const [user, setUser] = useState(null);
             const [history, setHistory] = useState([]);
+            const [isLoading, setIsLoading] = useState(false);
 
             const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
             const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -189,9 +192,7 @@
             useEffect(() => {
                 const savedHistory = localStorage.getItem(`${appId}_history`);
                 if (savedHistory) setHistory(JSON.parse(savedHistory));
-            }, []);
-
-            useEffect(() => {
+                
                 const handleReady = () => setFbReady(true);
                 window.addEventListener('firebase-ready', handleReady);
                 if (window.FB) handleReady();
@@ -201,14 +202,17 @@
             useEffect(() => {
                 if (!fbReady) return;
                 const { auth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } = window.FB;
+                
                 const initAuth = async () => {
                     try {
                         if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token) {
                             await signInWithCustomToken(auth, window.__initial_auth_token);
-                        } else {
+                        } else if (!auth.currentUser) {
                             await signInAnonymously(auth);
                         }
-                    } catch (err) {}
+                    } catch (err) {
+                        console.error("Auth Error", err);
+                    }
                 };
                 initAuth();
                 const unsubscribe = onAuthStateChanged(auth, setUser);
@@ -226,7 +230,7 @@
                     }
                 }, (err) => console.error("Sync Error:", err));
                 return () => unsubscribe();
-            }, [fbReady, user, roomCode, view === 'landing']);
+            }, [fbReady, user, roomCode, view]);
 
             const updateHistory = (code, name) => {
                 const newHistory = [{ code, name }, ...history.filter(h => h.code !== code)].slice(0, 5);
@@ -247,32 +251,51 @@
             };
 
             const createRoom = async () => {
-                if (!user) return;
-                const code = Math.floor(100000 + Math.random() * 900000).toString();
-                const mId = Date.now().toString();
-                const name = roomName || '週末小旅行';
-                const data = { 
-                    name, 
-                    code, 
-                    members: [{ id: mId, name: firstMember || '我' }], 
-                    expenses: [],
-                    createdAt: window.FB.serverTimestamp()
-                };
-                const { db, doc, setDoc } = window.FB;
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code), data);
-                setRoomCode(code);
-                setView('room');
+                if (isLoading) return;
+                if (!user) {
+                    alert("登入中，請稍候再試...");
+                    return;
+                }
+                
+                setIsLoading(true);
+                try {
+                    const code = Math.floor(100000 + Math.random() * 900000).toString();
+                    const mId = Date.now().toString();
+                    const name = roomName || '週末小旅行';
+                    const data = { 
+                        name, 
+                        code, 
+                        members: [{ id: mId, name: firstMember || '我' }], 
+                        expenses: [],
+                        createdAt: window.FB.serverTimestamp()
+                    };
+                    const { db, doc, setDoc } = window.FB;
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code), data);
+                    setRoomCode(code);
+                    setView('room');
+                } catch (err) {
+                    alert("建立失敗，請檢查網路連線");
+                } finally {
+                    setIsLoading(false);
+                }
             };
 
             const joinRoom = async (code) => {
                 if (!user || !code) return;
-                const { db, doc, getDoc } = window.FB;
-                const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code));
-                if (snap.exists()) { 
-                    setRoomCode(code); 
-                    setView('room'); 
-                } else {
-                    alert("找不到此房號，請檢查輸入是否正確");
+                setIsLoading(true);
+                try {
+                    const { db, doc, getDoc } = window.FB;
+                    const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code));
+                    if (snap.exists()) { 
+                        setRoomCode(code); 
+                        setView('room'); 
+                    } else {
+                        alert("找不到此房號，請檢查輸入是否正確");
+                    }
+                } catch (err) {
+                    alert("加入失敗，請重試");
+                } finally {
+                    setIsLoading(false);
                 }
             };
 
@@ -356,7 +379,7 @@
 
             if (view === 'landing') {
                 return (
-                    <div className="scroll-container bg-slate-950 text-white animate-in px-8 flex flex-col items-center justify-center">
+                    <div className="scroll-container bg-slate-950 text-white animate-in px-8 items-center justify-center">
                         <div className="text-center mb-12 space-y-4">
                             <div className="w-24 h-24 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-[32px] flex items-center justify-center shadow-2xl shadow-indigo-500/20 mx-auto transform rotate-12 transition-transform hover:rotate-0 duration-500">
                                 <Icon name="chart" className="text-white w-12 h-12" />
@@ -376,14 +399,19 @@
                             <div className="space-y-3">
                                 <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder="活動名稱" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-bold focus:border-indigo-500 transition-all placeholder:text-slate-700" />
                                 <input value={firstMember} onChange={e => setFirstMember(e.target.value)} placeholder="您的暱稱" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-bold focus:border-indigo-500 transition-all placeholder:text-slate-700" />
-                                <button onClick={createRoom} disabled={!user} className="w-full bg-indigo-600 p-4 rounded-2xl font-black hover:bg-indigo-500 btn-active disabled:opacity-50 transition-colors">建立新房間</button>
+                                <button 
+                                    onClick={createRoom} 
+                                    className={`w-full bg-indigo-600 p-4 rounded-2xl font-black hover:bg-indigo-500 btn-active transition-colors flex items-center justify-center gap-2 ${isLoading ? 'opacity-70' : ''}`}
+                                >
+                                    {isLoading ? '處理中...' : '建立新房間'}
+                                </button>
                             </div>
 
                             <div className="flex items-center gap-4 py-2"><div className="h-px bg-slate-800 flex-1"></div><span className="text-slate-600 font-black text-[10px] uppercase tracking-widest">輸入房號加入</span><div className="h-px bg-slate-800 flex-1"></div></div>
                             
                             <div className="flex gap-2">
                                 <input value={roomCode} onChange={e => setRoomCode(e.target.value)} placeholder="6 位數字" className="flex-1 p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-black text-center tracking-widest focus:border-indigo-500 w-0" />
-                                <button onClick={() => joinRoom(roomCode)} disabled={!user} className="bg-slate-100 text-slate-900 px-6 rounded-2xl font-black hover:bg-white btn-active disabled:opacity-50 transition-colors shrink-0">進入</button>
+                                <button onClick={() => joinRoom(roomCode)} className="bg-slate-100 text-slate-900 px-6 rounded-2xl font-black hover:bg-white btn-active transition-colors shrink-0">進入</button>
                             </div>
 
                             {history.length > 0 && (
