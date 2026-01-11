@@ -73,7 +73,8 @@
                 equal: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 9h16M4 15h16" /></svg>,
                 calculator: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
                 copy: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>,
-                x: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                x: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
+                share: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
             };
             return icons[name] || <span>•</span>;
         };
@@ -287,6 +288,48 @@
                 calculateSettlements(roomData.members, roomData.expenses), 
                 [roomData]
             );
+
+            // 新增：分享結算結果功能
+            const shareSettlement = async () => {
+                if (transactions.length === 0) {
+                    alert("目前沒有需要結算的款項喔！");
+                    return;
+                }
+
+                let text = `📊 SplitWise Pro - ${roomData.name} 結算報告\n\n`;
+                text += `房號：${roomCode}\n`;
+                text += `--------------------------\n`;
+                text += `✅ 還款建議：\n`;
+                
+                transactions.forEach(t => {
+                    const from = roomData.members.find(m => m.id === t.from)?.name;
+                    const to = roomData.members.find(m => m.id === t.to)?.name;
+                    text += `${from} ➡ 支付 $${t.amount.toFixed(0)} 給 ${to}\n`;
+                });
+                
+                text += `\n--------------------------\n`;
+                text += `Powered by SplitWise Pro`;
+
+                if (navigator.share) {
+                    try {
+                        await navigator.share({
+                            title: `SplitWise Pro - ${roomData.name}`,
+                            text: text
+                        });
+                    } catch (err) {
+                        // 使用者取消分享或錯誤時的處理
+                    }
+                } else {
+                    // 備援方案：複製到剪貼簿
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    alert("結算內容已複製到剪貼簿，趕快傳到群組吧！");
+                }
+            };
 
             if (view === 'landing') {
                 return (
@@ -521,9 +564,15 @@
             if (view === 'settle') {
                 return (
                     <div className="h-full flex flex-col bg-slate-50">
-                        <header className="shrink-0 flex items-center gap-4 p-6 bg-white/50 backdrop-blur-sm">
-                            <button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm hover:bg-slate-50 transition-colors"><Icon name="arrowLeft" /></button>
-                            <h2 className="text-2xl font-black text-slate-900">結算報告</h2>
+                        <header className="shrink-0 flex items-center justify-between p-6 bg-white/50 backdrop-blur-sm">
+                            <div className="flex items-center gap-4">
+                                <button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm hover:bg-slate-50 transition-colors"><Icon name="arrowLeft" /></button>
+                                <h2 className="text-2xl font-black text-slate-900">結算報告</h2>
+                            </div>
+                            {/* 加入分享按鈕 */}
+                            <button onClick={shareSettlement} className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-md btn-active hover:bg-indigo-500 transition-colors">
+                                <Icon name="share" className="w-5 h-5" />
+                            </button>
                         </header>
 
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-10">
@@ -545,7 +594,11 @@
                             </section>
 
                             <section className="space-y-4">
-                                <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest mb-4 ml-1 opacity-50">還款建議</h3>
+                                <div className="flex justify-between items-center mb-4 ml-1">
+                                    <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest opacity-50">還款建議</h3>
+                                    {/* 下方也可以提供小小的分享文字連結 */}
+                                    <button onClick={shareSettlement} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline transition-all">點此快速分享文字版本</button>
+                                </div>
                                 {transactions.length === 0 ? (
                                     <div className="text-center py-12 text-slate-400 font-bold bg-white rounded-[32px] border border-slate-100">大家已經扯平囉！</div>
                                 ) : transactions.map((t, idx) => (
