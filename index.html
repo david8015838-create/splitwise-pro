@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SplitWise Pro - 高級本地版</title>
+    <title>SplitWise Pro - 雲端同步版</title>
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -58,6 +58,21 @@
 </head>
 <body>
     <div id="root"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase 配置
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'splitwise-pro-v2';
+
+        window.FB = { db, auth, appId, doc, setDoc, getDoc, onSnapshot, updateDoc, signInAnonymously, signInWithCustomToken, onAuthStateChanged };
+    </script>
 
     <script id="react-code" type="text/babel">
         const { useState, useEffect, useMemo } = React;
@@ -149,6 +164,7 @@
             const [roomCode, setRoomCode] = useState('');
             const [roomData, setRoomData] = useState({ members: [], expenses: [], name: '' });
             const [history, setHistory] = useState([]);
+            const [user, setUser] = useState(null);
             
             const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
             const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -165,24 +181,57 @@
             });
             const [newMemberName, setNewMemberName] = useState('');
 
-            // 初始化與讀取歷史
+            // 初始化 Auth
             useEffect(() => {
+                if (!window.FB) return;
+                const { auth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = window.FB;
+                
+                const initAuth = async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                };
+                initAuth();
+
+                const unsubscribe = onAuthStateChanged(auth, setUser);
                 const savedHistory = localStorage.getItem('splitwise_pro_history_v2');
                 if (savedHistory) setHistory(JSON.parse(savedHistory));
+                
+                return () => unsubscribe();
             }, []);
 
-            // 持久化儲存與同步數據 (LocalStorage)
-            const saveRoomToStorage = (data) => {
-                setRoomData(data);
-                localStorage.setItem(`room_v2_${data.code}`, JSON.stringify(data));
+            // 實時監聽房間數據
+            useEffect(() => {
+                if (!user || !roomCode || !window.FB) return;
+                const { db, appId, doc, onSnapshot } = window.FB;
                 
-                // 更新歷史清單
+                const roomDoc = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                const unsubscribe = onSnapshot(roomDoc, (docSnap) => {
+                    if (docSnap.exists()) {
+                        setRoomData(docSnap.data());
+                    }
+                }, (error) => console.error("Snapshot error:", error));
+
+                return () => unsubscribe();
+            }, [user, roomCode]);
+
+            const saveRoomToCloud = async (data) => {
+                if (!user || !window.FB) return;
+                const { db, appId, doc, setDoc } = window.FB;
+                
+                const roomDoc = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', data.code);
+                await setDoc(roomDoc, data);
+
+                // 更新歷史清單 (本地記錄)
                 const newHistory = [{ code: data.code, name: data.name }, ...history.filter(h => h.code !== data.code)].slice(0, 10);
                 setHistory(newHistory);
                 localStorage.setItem('splitwise_pro_history_v2', JSON.stringify(newHistory));
             };
 
-            const createRoom = () => {
+            const createRoom = async () => {
+                if (!user) return;
                 const code = Math.floor(100000 + Math.random() * 900000).toString();
                 const mId = 'm_' + Date.now();
                 const data = {
@@ -192,19 +241,30 @@
                     expenses: []
                 };
                 setRoomCode(code);
-                saveRoomToStorage(data);
+                setRoomData(data);
+                await saveRoomToCloud(data);
                 setView('room');
             };
 
-            const joinRoom = (code) => {
-                if (!code) return;
-                const saved = localStorage.getItem(`room_v2_${code}`);
-                if (saved) {
+            const joinRoom = async (code) => {
+                if (!code || !user || !window.FB) return;
+                const { db, appId, doc, getDoc } = window.FB;
+                
+                const roomDoc = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code);
+                const docSnap = await getDoc(roomDoc);
+                
+                if (docSnap.exists()) {
                     setRoomCode(code);
-                    setRoomData(JSON.parse(saved));
+                    setRoomData(docSnap.data());
                     setView('room');
+                    
+                    // 更新歷史記錄
+                    const data = docSnap.data();
+                    const newHistory = [{ code: data.code, name: data.name }, ...history.filter(h => h.code !== data.code)].slice(0, 10);
+                    setHistory(newHistory);
+                    localStorage.setItem('splitwise_pro_history_v2', JSON.stringify(newHistory));
                 } else {
-                    alert("本地資料中找不到此房號，請確認輸入是否正確");
+                    alert("找不到此房號，請確認輸入是否正確");
                 }
             };
 
@@ -213,7 +273,6 @@
                 const newHistory = history.filter(h => h.code !== code);
                 setHistory(newHistory);
                 localStorage.setItem('splitwise_pro_history_v2', JSON.stringify(newHistory));
-                localStorage.removeItem(`room_v2_${code}`);
             };
 
             const copyRoomCode = () => {
@@ -228,7 +287,7 @@
                 document.body.removeChild(textArea);
             };
 
-            const handleAddExpense = () => {
+            const handleAddExpense = async () => {
                 if (!newExp.title || !newExp.amount || !newExp.payerId) {
                     alert("請完整填寫名稱、金額與付款人");
                     return;
@@ -247,12 +306,12 @@
 
                 const expense = { ...newExp, id: 'e_' + Date.now(), amount: parseFloat(newExp.amount) };
                 const newData = { ...roomData, expenses: [...roomData.expenses, expense] };
-                saveRoomToStorage(newData);
+                await saveRoomToCloud(newData);
                 setView('room');
                 setNewExp({ title: '', amount: '', payerId: '', participants: [], splitMode: 'equal', customAmounts: {} });
             };
 
-            const handleAddMember = () => {
+            const handleAddMember = async () => {
                 const trimmedName = newMemberName.trim();
                 if (!trimmedName) return;
                 
@@ -263,12 +322,12 @@
 
                 const member = { id: 'm_' + Date.now(), name: trimmedName };
                 const newData = { ...roomData, members: [...roomData.members, member] };
-                saveRoomToStorage(newData);
+                await saveRoomToCloud(newData);
                 setNewMemberName('');
                 setIsMemberModalOpen(false);
             };
 
-            const executeDelete = () => {
+            const executeDelete = async () => {
                 let newData;
                 if (deleteType === 'expense') {
                     newData = { ...roomData, expenses: roomData.expenses.filter(e => e.id !== itemToDelete) };
@@ -279,7 +338,7 @@
                     }
                     newData = { ...roomData, members: roomData.members.filter(m => m.id !== itemToDelete) };
                 }
-                saveRoomToStorage(newData);
+                await saveRoomToCloud(newData);
                 setIsDeleteConfirmOpen(false);
                 setItemToDelete(null);
             };
@@ -289,7 +348,6 @@
                 [roomData]
             );
 
-            // 新增：分享結算結果功能
             const shareSettlement = async () => {
                 if (transactions.length === 0) {
                     alert("目前沒有需要結算的款項喔！");
@@ -316,11 +374,8 @@
                             title: `SplitWise Pro - ${roomData.name}`,
                             text: text
                         });
-                    } catch (err) {
-                        // 使用者取消分享或錯誤時的處理
-                    }
+                    } catch (err) {}
                 } else {
-                    // 備援方案：複製到剪貼簿
                     const textArea = document.createElement("textarea");
                     textArea.value = text;
                     document.body.appendChild(textArea);
@@ -569,7 +624,6 @@
                                 <button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm hover:bg-slate-50 transition-colors"><Icon name="arrowLeft" /></button>
                                 <h2 className="text-2xl font-black text-slate-900">結算報告</h2>
                             </div>
-                            {/* 加入分享按鈕 */}
                             <button onClick={shareSettlement} className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-md btn-active hover:bg-indigo-500 transition-colors">
                                 <Icon name="share" className="w-5 h-5" />
                             </button>
@@ -596,7 +650,6 @@
                             <section className="space-y-4">
                                 <div className="flex justify-between items-center mb-4 ml-1">
                                     <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest opacity-50">還款建議</h3>
-                                    {/* 下方也可以提供小小的分享文字連結 */}
                                     <button onClick={shareSettlement} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline transition-all">點此快速分享文字版本</button>
                                 </div>
                                 {transactions.length === 0 ? (
