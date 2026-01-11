@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SplitWise Pro - 高級版</title>
+    <title>SplitWise Pro - 穩定版</title>
     
     <!-- 基礎框架載入 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,18 +11,13 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     
     <style>
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
             -webkit-tap-highlight-color: transparent; 
-            background-color: #F8FAFC;
+            background-color: #020617;
             overflow: hidden; 
             width: 100vw;
             height: 100dvh;
@@ -38,29 +33,14 @@
         .ios-inset { padding-bottom: env(safe-area-inset-bottom); }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .scroll-container { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
-
-        // --- Firebase 初始化 ---
-        let db, auth;
-        try {
-            const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
-            if (!firebase.apps.length) {
-                const app = firebase.initializeApp(firebaseConfig);
-                db = firebase.firestore(app);
-                auth = firebase.auth(app);
-            } else {
-                db = firebase.firestore();
-                auth = firebase.auth();
-            }
-        } catch (e) {
-            console.error("Firebase 加載失敗", e);
-        }
+        const { useState, useEffect, useMemo } = React;
 
         // --- UI 圖標組件 ---
         const Icon = ({ name, className = "w-5 h-5" }) => {
@@ -68,16 +48,16 @@
                 plus: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>,
                 trash: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
                 arrowLeft: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>,
-                receipt: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
+                receipt: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" /></svg>,
                 check: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>,
-                chart: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>,
+                chart: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /></svg>,
                 x: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             };
             return icons[name] || <span>•</span>;
         };
 
         const GlassCard = ({ children, className = "", onClick }) => (
-            <div onClick={onClick} className={`bg-white/90 backdrop-blur-xl rounded-[32px] border border-white/50 shadow-sm p-5 transition-all ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''} ${className}`}>
+            <div onClick={onClick} className={`bg-white/95 rounded-[32px] border border-white/20 shadow-xl p-5 transition-all ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''} ${className}`}>
                 {children}
             </div>
         );
@@ -86,7 +66,7 @@
             if (!isOpen) return null;
             return (
                 <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
+                    <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose}></div>
                     <div className="bg-white w-full sm:max-w-md rounded-t-[32px] sm:rounded-[32px] shadow-2xl relative z-10 slide-up overflow-hidden ios-inset">
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-6">
@@ -137,9 +117,7 @@
             const [firstMember, setFirstMember] = useState('');
             const [roomCode, setRoomCode] = useState('');
             const [roomData, setRoomData] = useState({ members: [], expenses: [] });
-            const [user, setUser] = useState(null);
             const [history, setHistory] = useState([]);
-            const [isLoading, setIsLoading] = useState(false);
 
             const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
             const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -149,105 +127,71 @@
             const [newExp, setNewExp] = useState({ title: '', amount: '', payerId: '', participants: [], splitMode: 'equal', customAmounts: {} });
             const [newMemberName, setNewMemberName] = useState('');
 
-            const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'split-wise-pro-master';
-
+            // 初始化：從 LocalStorage 讀取歷史紀錄
             useEffect(() => {
-                const initAuth = async () => {
-                    if (!auth) return;
-                    try {
-                        let currentUser;
-                        if (window.__initial_auth_token) {
-                            const res = await auth.signInWithCustomToken(window.__initial_auth_token);
-                            currentUser = res.user;
-                        } else {
-                            const res = await auth.signInAnonymously();
-                            currentUser = res.user;
-                        }
-                        setUser(currentUser);
-                        const savedHistory = localStorage.getItem(`${appId}_history`);
-                        if (savedHistory) setHistory(JSON.parse(savedHistory));
-                    } catch (e) { console.error("Auth Fail", e); }
-                };
-                initAuth();
+                const savedHistory = localStorage.getItem('splitwise_pro_history');
+                if (savedHistory) setHistory(JSON.parse(savedHistory));
             }, []);
 
+            // 持久化：當 roomData 變動時儲存到 LocalStorage
             useEffect(() => {
-                if (!user || !roomCode || view === 'landing') return;
-                const roomRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('rooms').doc(roomCode);
-                const unsubscribe = roomRef.onSnapshot((snap) => {
-                    if (snap.exists) {
-                        const data = snap.data();
-                        setRoomData(data);
-                        updateHistory(roomCode, data.name);
-                    }
-                });
-                return () => unsubscribe();
-            }, [user, roomCode, view]);
+                if (roomCode && view !== 'landing') {
+                    localStorage.setItem(`room_${roomCode}`, JSON.stringify(roomData));
+                    updateHistory(roomCode, roomData.name);
+                }
+            }, [roomData, roomCode]);
 
             const updateHistory = (code, name) => {
                 const newHistory = [{ code, name }, ...history.filter(h => h.code !== code)].slice(0, 5);
                 setHistory(newHistory);
-                localStorage.setItem(`${appId}_history`, JSON.stringify(newHistory));
+                localStorage.setItem('splitwise_pro_history', JSON.stringify(newHistory));
             };
 
-            const createRoom = async () => {
-                if (isLoading || !user) return;
-                setIsLoading(true);
-                try {
-                    const code = Math.floor(100000 + Math.random() * 900000).toString();
-                    const mId = Date.now().toString();
-                    const data = { 
-                        name: roomName || '我的週末旅行', 
-                        code, 
-                        members: [{ id: mId, name: firstMember || '本人' }], 
-                        expenses: [],
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('rooms').doc(code).set(data);
-                    setRoomCode(code);
-                    setView('room');
-                } catch (err) { alert("建立失敗"); }
-                setIsLoading(false);
-            };
-
-            const joinRoom = async (code) => {
-                if (isLoading || !user || !code) return;
-                setIsLoading(true);
-                try {
-                    const snap = await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('rooms').doc(code).get();
-                    if (snap.exists) {
-                        setRoomCode(code);
-                        setView('room');
-                    } else { alert("找不到房間"); }
-                } catch (err) { alert("進入失敗"); }
-                setIsLoading(false);
-            };
-
-            const updateDB = async (newData) => {
-                if (!user) return;
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('rooms').doc(roomCode).update(newData);
-            };
-
-            const handleAddExpense = async () => {
-                if (!newExp.title || !newExp.amount || !newExp.payerId) return alert("請填寫完整資訊");
-                const expense = { ...newExp, id: Date.now().toString(), amount: parseFloat(newExp.amount) };
-                await updateDB({ expenses: [...(roomData.expenses || []), expense] });
+            const createRoom = () => {
+                const code = Math.floor(100000 + Math.random() * 900000).toString();
+                const mId = 'm-' + Date.now();
+                const data = { 
+                    name: roomName || '我的活動', 
+                    code, 
+                    members: [{ id: mId, name: firstMember || '本人' }], 
+                    expenses: [] 
+                };
+                setRoomCode(code);
+                setRoomData(data);
                 setView('room');
             };
 
-            const handleAddMember = async () => {
+            const joinRoom = (code) => {
+                const saved = localStorage.getItem(`room_${code}`);
+                if (saved) {
+                    setRoomData(JSON.parse(saved));
+                    setRoomCode(code);
+                    setView('room');
+                } else {
+                    alert("本地找不到該房號資料。提示：此版本為本地存儲，資料僅存在於建立房間的瀏覽器中。");
+                }
+            };
+
+            const handleAddExpense = () => {
+                if (!newExp.title || !newExp.amount || !newExp.payerId) return alert("請填寫項目與金額");
+                const expense = { ...newExp, id: 'e-' + Date.now(), amount: parseFloat(newExp.amount) };
+                setRoomData(prev => ({ ...prev, expenses: [...prev.expenses, expense] }));
+                setView('room');
+            };
+
+            const handleAddMember = () => {
                 if (!newMemberName.trim()) return;
-                const member = { id: Date.now().toString(), name: newMemberName.trim() };
-                await updateDB({ members: [...(roomData.members || []), member] });
+                const member = { id: 'm-' + Date.now(), name: newMemberName.trim() };
+                setRoomData(prev => ({ ...prev, members: [...prev.members, member] }));
                 setNewMemberName('');
                 setIsMemberModalOpen(false);
             };
 
-            const executeDelete = async () => {
+            const executeDelete = () => {
                 if (deleteType === 'expense') {
-                    await updateDB({ expenses: roomData.expenses.filter(e => e.id !== itemToDelete) });
+                    setRoomData(prev => ({ ...prev, expenses: prev.expenses.filter(e => e.id !== itemToDelete) }));
                 } else {
-                    await updateDB({ members: roomData.members.filter(m => m.id !== itemToDelete) });
+                    setRoomData(prev => ({ ...prev, members: prev.members.filter(m => m.id !== itemToDelete) }));
                 }
                 setIsDeleteConfirmOpen(false);
             };
@@ -264,7 +208,7 @@
                             </div>
                             <div>
                                 <h1 className="text-4xl font-black tracking-tight">SplitWise <span className="text-indigo-400">Pro</span></h1>
-                                <div className="mt-1 text-slate-500 font-black text-[10px] tracking-[0.4em] uppercase opacity-60">OWEN STABLE VERSION</div>
+                                <div className="mt-1 text-slate-500 font-black text-[10px] tracking-[0.4em] uppercase opacity-60">LOCAL STABLE VERSION</div>
                             </div>
                         </div>
 
@@ -272,31 +216,23 @@
                             <div className="space-y-3">
                                 <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder="活動名稱" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-bold focus:border-indigo-500 transition-all placeholder:text-slate-700" />
                                 <input value={firstMember} onChange={e => setFirstMember(e.target.value)} placeholder="您的暱稱" className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-bold focus:border-indigo-500 transition-all placeholder:text-slate-700" />
-                                <button onClick={createRoom} className="w-full bg-indigo-600 p-4 rounded-2xl font-black hover:bg-indigo-500 btn-active transition-colors shadow-lg shadow-indigo-500/20">
-                                    {isLoading ? '處理中...' : '建立新房間'}
-                                </button>
+                                <button onClick={createRoom} className="w-full bg-indigo-600 p-4 rounded-2xl font-black hover:bg-indigo-500 btn-active transition-colors shadow-lg shadow-indigo-500/20">建立房間</button>
                             </div>
 
-                            <div className="flex items-center gap-4 py-2"><div className="h-px bg-slate-800 flex-1"></div><span className="text-slate-600 font-black text-[10px] tracking-widest uppercase">或者</span><div className="h-px bg-slate-800 flex-1"></div></div>
+                            <div className="flex items-center gap-4 py-2"><div className="h-px bg-slate-800 flex-1"></div><span className="text-slate-600 font-black text-[10px] tracking-widest uppercase">載入最近資料</span><div className="h-px bg-slate-800 flex-1"></div></div>
                             
-                            <div className="flex gap-2">
-                                <input value={roomCode} onChange={e => setRoomCode(e.target.value)} placeholder="6 位房號" className="flex-1 p-4 bg-slate-900 border border-slate-800 rounded-2xl outline-none font-black text-center tracking-widest focus:border-indigo-500 w-0" />
-                                <button onClick={() => joinRoom(roomCode)} className="bg-slate-100 text-slate-900 px-6 rounded-2xl font-black btn-active transition-colors">進入</button>
+                            <div className="space-y-3">
+                                {history.length > 0 ? (
+                                    history.map(h => (
+                                        <button key={h.code} onClick={() => joinRoom(h.code)} className="w-full flex items-center justify-between p-4 bg-slate-900/50 border border-slate-800 rounded-2xl hover:bg-slate-900 transition-colors">
+                                            <span className="font-bold text-slate-300 truncate">{h.name}</span>
+                                            <span className="text-indigo-400 font-black text-sm ml-2">{h.code}</span>
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div className="text-center text-slate-600 text-sm py-4">尚無本地紀錄</div>
+                                )}
                             </div>
-
-                            {history.length > 0 && (
-                                <div className="space-y-3 animate-in pt-4">
-                                    <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1">最近訪問</h4>
-                                    <div className="space-y-2">
-                                        {history.map(h => (
-                                            <button key={h.code} onClick={() => joinRoom(h.code)} className="w-full flex items-center justify-between p-4 bg-slate-900/50 border border-slate-800 rounded-2xl hover:bg-slate-900 transition-colors">
-                                                <span className="font-bold text-slate-300 truncate">{h.name}</span>
-                                                <span className="text-indigo-400 font-black text-sm ml-2">{h.code}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
                 );
@@ -305,12 +241,12 @@
             // --- 視圖: 房間主頁 ---
             if (view === 'room') {
                 return (
-                    <div className="h-full flex flex-col bg-[#F8FAFC]">
+                    <div className="h-full flex flex-col bg-[#F8FAFC] text-slate-900">
                         <header className="shrink-0 bg-white px-6 py-4 flex items-center justify-between border-b border-slate-100 z-50">
                             <button onClick={() => setView('landing')} className="p-2 bg-slate-50 rounded-xl text-slate-400"><Icon name="arrowLeft" /></button>
                             <div className="text-center px-2 flex-1 min-w-0">
                                 <h2 className="font-black text-slate-800 truncate">{roomData.name}</h2>
-                                <span className="text-[10px] font-black text-slate-400">房號 {roomCode}</span>
+                                <span className="text-[10px] font-black text-slate-400">房號 {roomCode} (本地存儲)</span>
                             </div>
                             <button onClick={() => setView('settle')} className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg btn-active"><Icon name="receipt" /></button>
                         </header>
@@ -336,7 +272,7 @@
                                 <div className="space-y-4">
                                     {[...(roomData.expenses || [])].reverse().map(exp => (
                                         <GlassCard key={exp.id}>
-                                            <div className="flex justify-between items-start gap-2">
+                                            <div className="flex justify-between items-start gap-2 text-slate-900">
                                                 <div className="flex gap-3 min-w-0">
                                                     <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0"><Icon name="receipt" /></div>
                                                     <div className="min-w-0">
@@ -347,22 +283,22 @@
                                                     </div>
                                                 </div>
                                                 <div className="text-right flex flex-col items-end shrink-0">
-                                                    <span className="text-xl font-black text-slate-900">${parseFloat(exp.amount).toLocaleString()}</span>
+                                                    <span className="text-xl font-black">${parseFloat(exp.amount).toLocaleString()}</span>
                                                     <button onClick={() => { setItemToDelete(exp.id); setDeleteType('expense'); setIsDeleteConfirmOpen(true); }} className="text-rose-400 p-1 hover:opacity-70 transition-opacity"><Icon name="trash" className="w-4 h-4" /></button>
                                                 </div>
                                             </div>
                                         </GlassCard>
                                     ))}
                                     {roomData.expenses?.length === 0 && (
-                                        <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-[32px] text-slate-400 font-bold">還沒有任何開銷喔</div>
+                                        <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-[32px] text-slate-400 font-bold">目前沒有開銷</div>
                                     )}
                                 </div>
                             </section>
                         </div>
 
                         <Modal isOpen={isMemberModalOpen} onClose={() => setIsMemberModalOpen(false)} title="新增夥伴">
-                            <input autoFocus value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="名字" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xl focus:border-indigo-500 transition-all" />
-                            <button onClick={handleAddMember} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-lg mt-5 btn-active shadow-lg shadow-indigo-100 transition-all">確認加入</button>
+                            <input autoFocus value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="名字" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-black text-xl focus:border-indigo-500 transition-all text-slate-900" />
+                            <button onClick={handleAddMember} className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-black text-lg mt-5 btn-active shadow-lg">確認加入</button>
                         </Modal>
 
                         <Modal isOpen={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)} title="確定要刪除？">
@@ -385,11 +321,11 @@
             // --- 視圖: 新增支出 ---
             if (view === 'add-expense') {
                 return (
-                    <div className="h-full flex flex-col bg-[#F8FAFC] animate-in">
-                        <header className="shrink-0 flex items-center gap-4 p-6"><button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">新增帳目</h2></header>
+                    <div className="h-full flex flex-col bg-[#F8FAFC] animate-in text-slate-900">
+                        <header className="shrink-0 flex items-center gap-4 p-6"><button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm text-slate-400"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">新增帳目</h2></header>
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-32">
                             <GlassCard className="space-y-4">
-                                <input value={newExp.title} onChange={e => setNewExp({...newExp, title: e.target.value})} placeholder="項目" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all" />
+                                <input value={newExp.title} onChange={e => setNewExp({...newExp, title: e.target.value})} placeholder="項目名稱" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all text-slate-900" />
                                 <div className="relative">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-300 text-2xl">$</span>
                                     <input type="number" inputMode="decimal" value={newExp.amount} onChange={e => setNewExp({...newExp, amount: e.target.value})} placeholder="金額" className="w-full p-4 pl-10 bg-slate-50 rounded-2xl outline-none font-black text-3xl text-indigo-600 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all" />
@@ -400,7 +336,7 @@
                                 <h3 className="font-black text-slate-800 mb-3 ml-1">誰付的錢？</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {roomData.members.map(m => (
-                                        <button key={m.id} onClick={() => setNewExp({...newExp, payerId: m.id})} className={`px-5 py-2.5 rounded-2xl font-bold transition-all btn-active ${newExp.payerId === m.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-white text-slate-500 border border-slate-100'}`}>{m.name}</button>
+                                        <button key={m.id} onClick={() => setNewExp({...newExp, payerId: m.id})} className={`px-5 py-2.5 rounded-2xl font-bold transition-all btn-active ${newExp.payerId === m.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-500 border border-slate-100'}`}>{m.name}</button>
                                     ))}
                                 </div>
                             </section>
@@ -409,8 +345,8 @@
                                 <div className="flex justify-between items-end mb-4 ml-1">
                                     <h3 className="font-black text-slate-800">分攤方式</h3>
                                     <div className="bg-slate-200/50 p-1 rounded-xl flex gap-1">
-                                        <button onClick={() => setNewExp({...newExp, splitMode: 'equal'})} className={`px-4 py-2 rounded-lg font-black text-xs transition-all ${newExp.splitMode === 'equal' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>平均分攤</button>
-                                        <button onClick={() => setNewExp({...newExp, splitMode: 'exact'})} className={`px-4 py-2 rounded-lg font-black text-xs transition-all ${newExp.splitMode === 'exact' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>手動金額</button>
+                                        <button onClick={() => setNewExp({...newExp, splitMode: 'equal'})} className={`px-4 py-2 rounded-lg font-black text-xs transition-all ${newExp.splitMode === 'equal' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>平均</button>
+                                        <button onClick={() => setNewExp({...newExp, splitMode: 'exact'})} className={`px-4 py-2 rounded-lg font-black text-xs transition-all ${newExp.splitMode === 'exact' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>自訂</button>
                                     </div>
                                 </div>
 
@@ -442,7 +378,7 @@
                             </section>
                         </div>
                         <div className="shrink-0 p-6 bg-white/80 backdrop-blur-md border-t border-slate-100 ios-inset">
-                            <button onClick={handleAddExpense} className="w-full bg-slate-900 text-white p-6 rounded-[32px] font-black text-xl shadow-2xl btn-active transition-all">儲存這筆開銷</button>
+                            <button onClick={handleAddExpense} className="w-full bg-slate-900 text-white p-6 rounded-[32px] font-black text-xl shadow-2xl btn-active">儲存開銷</button>
                         </div>
                     </div>
                 );
@@ -451,8 +387,8 @@
             // --- 視圖: 結算 ---
             if (view === 'settle') {
                 return (
-                    <div className="h-full flex flex-col bg-slate-50 animate-in">
-                        <header className="shrink-0 flex items-center gap-4 p-6 bg-white/50 backdrop-blur-sm"><button onClick={() => setView('room')} className="p-2 bg-white rounded-xl shadow-sm btn-active"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">分帳結算</h2></header>
+                    <div className="h-full flex flex-col bg-slate-50 animate-in text-slate-900">
+                        <header className="shrink-0 flex items-center gap-4 p-6 bg-white border-b border-slate-100"><button onClick={() => setView('room')} className="p-2 bg-slate-50 rounded-xl text-slate-400 btn-active"><Icon name="arrowLeft" /></button><h2 className="text-2xl font-black text-slate-900">分帳結算</h2></header>
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-10 no-scrollbar">
                             <section>
                                 <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 rounded-[40px] text-white shadow-2xl space-y-4">
@@ -469,11 +405,11 @@
                             <section className="space-y-4">
                                 <h3 className="font-black text-slate-800 text-lg ml-1">轉帳方案</h3>
                                 {transactions.length === 0 ? (
-                                    <div className="text-center py-16 text-slate-400 font-bold bg-white rounded-[32px] border border-slate-100 shadow-sm">太完美了，帳目全平！</div>
+                                    <div className="text-center py-16 text-slate-400 font-bold bg-white rounded-[32px] border border-slate-100 shadow-sm">帳目全平！</div>
                                 ) : transactions.map((t, idx) => (
                                     <GlassCard key={idx} className="flex justify-between items-center py-8">
                                         <div className="text-center flex-1 min-w-0">
-                                            <div className="text-[9px] text-slate-400 font-black mb-1 uppercase tracking-tighter">支付給</div>
+                                            <div className="text-[9px] text-slate-400 font-black mb-1 uppercase tracking-tighter">支付者</div>
                                             <div className="font-black text-slate-800 text-lg truncate">{roomData.members.find(m => m.id === t.from)?.name}</div>
                                         </div>
                                         <div className="flex flex-col items-center px-4 shrink-0">
@@ -483,7 +419,7 @@
                                             </div>
                                         </div>
                                         <div className="text-center flex-1 min-w-0">
-                                            <div className="text-[9px] text-slate-400 font-black mb-1 uppercase tracking-tighter">接收人</div>
+                                            <div className="text-[9px] text-slate-400 font-black mb-1 uppercase tracking-tighter">接收者</div>
                                             <div className="font-black text-indigo-600 text-lg truncate">{roomData.members.find(m => m.id === t.to)?.name}</div>
                                         </div>
                                     </GlassCard>
