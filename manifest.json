@@ -1,0 +1,25 @@
+{
+  "name": "SplitWise Pro",
+  "short_name": "SplitWise",
+  "description": "雲端即時分帳應用",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#4F46E5",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iNDAiIGZpbGw9IiM0RjQ2RTUiLz4KPHN2ZyB3aWR0aD0iMTA0IiBoZWlnaHQ9IjEwNCIgeD0iNDQiIHk9IjQ0IiB2aWV3Qm94PSIwIDAgMTA0IDEwNCIgZmlsbD0ibm9uZSI+CjxjaXJjbGUgY3g9IjUyIiBjeT0iNTIiIHI9IjUyIiBmaWxsPSIjZmZmZmZmIi8+CjxwYXRoIGQ9Ik0yMSAyMWg2MnY2MkgMjF6IiBmaWxsPSIjNEY0NkU1Ii8+CjxwYXRoIGQ9Ik0zMiAzMmg0MHY0MEgzMnoiIGZpbGw9IiNmZmZmZmYiLz4KPHBhdGggZD0iTTUyIDMyaDR2NDBoLTR6IiBmaWxsPSIjZmZmZmZmIi8+CjxwYXRoIGQ9Ik03MiAzMmg0MHY0MGgtNHoiIGZpbGw9IiNmZmZmZmYiLz4KPHBhdGggZD0iTTMyIDUyaDQwaDRWMzJoLTR6IiBmaWxsPSIjZmZmZmZmIi8+Cjwvc3ZnPgo8L3N2Zz4K",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgdmlld0JveD0iMCAwIDUxMiA1MTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMTAwIiBmaWxsPSIjNEY0NkU1Ii8+Cjxzdmcgd2lkdGg9IjI2MCIgaGVpZ2h0PSIyNjAiIHg9IjEyNiIgeT0iMTI2IiB2aWV3Qm94PSIwIDAgMjYwIDI2MCIgZmlsbD0ibm9uZSI+CjxjaXJjbGUgY3g9IjEzMCIgY3k9IjEzMCIgcj0iMTMwIiBmaWxsPSIjZmZmZmZmIi8+CjxwYXRoIGQ9Ik01MyA1M2gxNTR2MTU0SDUzek0iIGZpbGw9IiM0RjQ2RTUiLz4KPHBhdGggZD0iTTgwIDgwaDcwdjgwSDgwek04MCAxNjBoODB2ODBIMDgwIiBmaWxsPSIjZmZmZmZmIi8+CjxwYXRoIGQ9Ik0xMzAgODB2ODBIMTAweiIgcmlsbD0iI2ZmZmZmYiLz4KPHBhdGggZD0iTTE4MCA4MGg4MHY4MEgxODB6IiBmaWxsPSIjZmZmZmZmIi8+CjxwYXRoIGQ9Ik04MCAxMzBoODB2ODBIMDgwIiBmaWxsPSIjZmZmZmZmIi8+Cjwvc3ZnPgo8L3N2Zz4K",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
