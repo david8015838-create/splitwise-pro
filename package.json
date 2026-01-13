@@ -1,0 +1,28 @@
+{
+  "name": "splitwise-pro",
+  "version": "2.0.0",
+  "description": "現代化的分帳應用，支援雲端即時同步",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve",
+    "dev": "npx serve",
+    "test": "echo \"Open test-connection.html in browser to test Supabase connection\""
+  },
+  "keywords": [
+    "splitwise",
+    "expense-tracker",
+    "bill-splitting",
+    "supabase",
+    "realtime"
+  ],
+  "author": "OWEN",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/splitwise-pro.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/splitwise-pro/issues"
+  },
+  "homepage": "https://github.com/yourusername/splitwise-pro#readme"
+}

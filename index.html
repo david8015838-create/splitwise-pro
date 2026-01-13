@@ -9,7 +9,7 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     
     <style>
@@ -22,6 +22,10 @@
             height: 100dvh;
             margin: 0;
             padding: 0;
+            transition: background-color 0.3s ease;
+        }
+        body.light-mode {
+            background-color: #f1f5f9; /* Slate-100 */
         }
         #root {
             height: 100%;
@@ -31,6 +35,11 @@
             position: relative;
             background: #020617;
             box-shadow: 0 0 80px rgba(0,0,0,0.5);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        body.light-mode #root {
+            background: #f1f5f9;
+            box-shadow: 0 0 80px rgba(0,0,0,0.1);
         }
         .animate-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
@@ -63,7 +72,31 @@
             background: rgba(30, 41, 59, 0.5); /* Slate-800 with alpha */
             backdrop-filter: blur(8px);
             border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
+        body.light-mode .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        
+        /* 淺色模式文字顏色 */
+        body.light-mode .text-white { color: #0f172a !important; }
+        body.light-mode .text-slate-200 { color: #334155 !important; }
+        body.light-mode .text-slate-300 { color: #475569 !important; }
+        body.light-mode .text-slate-400 { color: #64748b !important; }
+        body.light-mode .text-slate-500 { color: #94a3b8 !important; }
+        body.light-mode .text-slate-600 { color: #cbd5e1 !important; }
+        body.light-mode .text-slate-700 { color: #e2e8f0 !important; }
+        
+        /* 淺色模式背景 */
+        body.light-mode .bg-slate-950 { background-color: #f1f5f9 !important; }
+        body.light-mode .bg-slate-900 { background-color: #ffffff !important; border: 1px solid #e2e8f0 !important; }
+        body.light-mode .bg-slate-800 { background-color: #f8fafc !important; }
+        
+        /* 淺色模式邊框 */
+        body.light-mode .border-slate-800 { border-color: #e2e8f0 !important; }
+        body.light-mode .border-slate-700 { border-color: #cbd5e1 !important; }
+        body.light-mode .border-white\/5 { border-color: rgba(0, 0, 0, 0.05) !important; }
     </style>
 </head>
 <body>
@@ -72,10 +105,11 @@
     <script id="react-code" type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        const gun = Gun([
-            'https://gun-manhattan.herokuapp.com/gun',
-            'https://peer.wall.org/gun'
-        ]);
+        // Supabase 配置
+        const SUPABASE_URL = 'https://azihzilwffcyhksflbdk.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6aWh6aWx3ZmZjeWhrc2ZsYmRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgyODA2MDAsImV4cCI6MjA4Mzg1NjYwMH0.G-ggtcFT5Ccx_UXcMVLuzVgxCS1SyZBglECPTymdDJ8';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const Icon = ({ name, className = "w-5 h-5" }) => {
             const icons = {
@@ -88,7 +122,9 @@
                 copy: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>,
                 share: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>,
                 x: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
-                alert: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                alert: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+                sun: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
+                moon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
             };
             return icons[name] || <span>•</span>;
         };
@@ -184,6 +220,7 @@
             const [roomCode, setRoomCode] = useState('');
             const [roomData, setRoomData] = useState({ members: [], expenses: [], name: '' });
             const [history, setHistory] = useState([]);
+            const [isDarkMode, setIsDarkMode] = useState(true);
             
             const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
             const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -196,32 +233,126 @@
             useEffect(() => {
                 const savedHistory = localStorage.getItem('splitwise_pro_history_v2');
                 if (savedHistory) setHistory(JSON.parse(savedHistory));
+                
+                const savedTheme = localStorage.getItem('splitwise_pro_theme');
+                if (savedTheme) {
+                    const isDark = savedTheme === 'dark';
+                    setIsDarkMode(isDark);
+                    if (!isDark) {
+                        document.body.classList.add('light-mode');
+                    }
+                }
+                
                 if (window.location.hash) {
                     const code = window.location.hash.replace('#', '');
                     joinRoom(code);
                 }
             }, []);
 
+            const toggleTheme = () => {
+                const newMode = !isDarkMode;
+                setIsDarkMode(newMode);
+                localStorage.setItem('splitwise_pro_theme', newMode ? 'dark' : 'light');
+                if (newMode) {
+                    document.body.classList.remove('light-mode');
+                } else {
+                    document.body.classList.add('light-mode');
+                }
+            };
+
             useEffect(() => {
                 if (!roomCode) return;
-                const roomNode = gun.get('splitwise-pro-v2').get(roomCode);
-                const unsubscribe = roomNode.on((data) => {
-                    if (data) {
-                        try {
-                            const parsedData = JSON.parse(data.content);
-                            setRoomData(parsedData);
-                        } catch (e) { console.error("解析錯誤", e); }
-                    }
-                });
-                return () => roomNode.off();
+                
+                // 初始載入房間資料
+                loadRoomData(roomCode);
+                
+                // 訂閱即時更新
+                const channel = supabase
+                    .channel(`room:${roomCode}`)
+                    .on('postgres_changes', 
+                        { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${roomCode}` },
+                        (payload) => {
+                            if (payload.new && payload.new.data) {
+                                setRoomData(payload.new.data);
+                            }
+                        }
+                    )
+                    .subscribe();
+                
+                return () => {
+                    supabase.removeChannel(channel);
+                };
             }, [roomCode]);
 
+            const loadRoomData = async (code) => {
+                try {
+                    // 先嘗試從 Supabase 載入
+                    const { data, error } = await supabase
+                        .from('rooms')
+                        .select('*')
+                        .eq('code', code)
+                        .single();
+                    
+                    if (data && data.data) {
+                        setRoomData(data.data);
+                        // 同步更新 localStorage
+                        localStorage.setItem('splitwise_room_' + code, JSON.stringify(data.data));
+                        return;
+                    }
+                    
+                    // 如果 Supabase 沒有數據，嘗試從 localStorage 載入
+                    const localData = localStorage.getItem('splitwise_room_' + code);
+                    if (localData) {
+                        setRoomData(JSON.parse(localData));
+                        console.log('📂 從本地載入房間資料');
+                    }
+                } catch (error) {
+                    console.warn('⚠️ 雲端載入失敗，嘗試本地載入:', error.message);
+                    // 從 localStorage 載入
+                    try {
+                        const localData = localStorage.getItem('splitwise_room_' + code);
+                        if (localData) {
+                            setRoomData(JSON.parse(localData));
+                            console.log('📂 從本地載入房間資料');
+                        }
+                    } catch (e) {
+                        console.error('本地載入也失敗:', e);
+                    }
+                }
+            };
+
             const saveRoomToCloud = async (data) => {
-                const roomNode = gun.get('splitwise-pro-v2').get(data.code);
-                roomNode.put({ content: JSON.stringify(data), lastUpdate: Date.now() });
+                // 先保存到 localStorage 作為備份
+                try {
+                    localStorage.setItem('splitwise_room_' + data.code, JSON.stringify(data));
+                } catch (e) {
+                    console.warn('LocalStorage 儲存失敗:', e);
+                }
+                
+                // 更新歷史記錄
                 const newHistory = [{ code: data.code, name: data.name }, ...history.filter(h => h.code !== data.code)].slice(0, 10);
                 setHistory(newHistory);
                 localStorage.setItem('splitwise_pro_history_v2', JSON.stringify(newHistory));
+                
+                // 嘗試儲存到 Supabase
+                try {
+                    const roomPayload = {
+                        code: data.code,
+                        name: data.name,
+                        data: data,
+                        updated_at: new Date().toISOString()
+                    };
+                    
+                    const { error } = await supabase
+                        .from('rooms')
+                        .upsert(roomPayload, { onConflict: 'code' });
+                    
+                    if (error) throw error;
+                    console.log('✅ 已同步到雲端');
+                } catch (error) {
+                    console.warn('⚠️ 雲端同步失敗，數據已保存在本地:', error.message);
+                    // 不顯示 alert，避免干擾用戶體驗
+                }
             };
 
             const removeFromHistory = (code) => {
@@ -237,23 +368,53 @@
                 setRoomCode(code);
                 window.location.hash = code;
                 setRoomData(data);
-                await saveRoomToCloud(data);
                 setView('room');
+                // 異步儲存到雲端（不阻塞 UI）
+                saveRoomToCloud(data).catch(err => {
+                    console.error('儲存到雲端失敗，但本地數據已保存:', err);
+                });
             };
 
             const joinRoom = async (code) => {
                 if (!code) return;
                 setRoomCode(code);
                 window.location.hash = code;
-                gun.get('splitwise-pro-v2').get(code).once((data) => {
-                    if (data) {
-                        const parsedData = JSON.parse(data.content);
-                        setRoomData(parsedData);
-                        setView('room');
-                    } else if (view === 'landing') {
-                        setView('room');
+                setView('room');
+                
+                try {
+                    // 嘗試從 Supabase 載入
+                    const { data, error } = await supabase
+                        .from('rooms')
+                        .select('*')
+                        .eq('code', code)
+                        .single();
+                    
+                    if (data && data.data) {
+                        setRoomData(data.data);
+                        // 同步更新 localStorage
+                        localStorage.setItem('splitwise_room_' + code, JSON.stringify(data.data));
+                        return;
                     }
-                });
+                } catch (error) {
+                    console.warn('⚠️ 雲端載入失敗，嘗試本地載入:', error.message);
+                }
+                
+                // 如果雲端載入失敗，嘗試從 localStorage 載入
+                try {
+                    const localData = localStorage.getItem('splitwise_room_' + code);
+                    if (localData) {
+                        setRoomData(JSON.parse(localData));
+                        console.log('📂 從本地載入房間資料');
+                    } else {
+                        // 如果本地也沒有，創建空房間
+                        setRoomData({ code, name: '新房間', members: [], expenses: [] });
+                        console.log('🆕 創建新房間');
+                    }
+                } catch (e) {
+                    console.error('本地載入失敗:', e);
+                    // 創建空房間作為最後手段
+                    setRoomData({ code, name: '新房間', members: [], expenses: [] });
+                }
             };
 
             const copyToClipboard = (text, toastMsg = "已複製！") => {
@@ -282,18 +443,22 @@
                 }
                 const expense = { ...newExp, id: 'e_' + Date.now(), amount: parseFloat(newExp.amount) };
                 const newData = { ...roomData, expenses: [...roomData.expenses, expense] };
-                await saveRoomToCloud(newData);
+                setRoomData(newData);
                 setView('room');
                 setNewExp({ title: '', amount: '', payerId: '', participants: [], splitMode: 'equal', customAmounts: {} });
+                // 異步保存到雲端
+                saveRoomToCloud(newData).catch(err => console.warn('保存失敗:', err));
             };
 
             const handleAddMember = async () => {
                 if (!newMemberName.trim()) return;
                 const member = { id: 'm_' + Date.now(), name: newMemberName.trim() };
                 const newData = { ...roomData, members: [...roomData.members, member] };
-                await saveRoomToCloud(newData);
+                setRoomData(newData);
                 setNewMemberName('');
                 setIsMemberModalOpen(false);
+                // 異步保存到雲端
+                saveRoomToCloud(newData).catch(err => console.warn('保存失敗:', err));
             };
 
             const executeDelete = async () => {
@@ -303,8 +468,10 @@
                 } else {
                     newData = { ...roomData, members: roomData.members.filter(m => m.id !== itemToDelete) };
                 }
-                await saveRoomToCloud(newData);
+                setRoomData(newData);
                 setIsDeleteConfirmOpen(false);
+                // 異步保存到雲端
+                saveRoomToCloud(newData).catch(err => console.warn('保存失敗:', err));
             };
 
             const { transactions, balances, detailedExpenses } = useMemo(() => calculateSettlements(roomData.members, roomData.expenses), [roomData]);
@@ -338,7 +505,14 @@
             // 首頁
             if (view === 'landing') {
                 return (
-                    <div className="scroll-container bg-slate-950 text-white animate-in px-8 items-center justify-center scroll-hide">
+                    <div className="scroll-container bg-slate-950 text-white animate-in px-8 items-center justify-center scroll-hide relative">
+                        <button 
+                            onClick={toggleTheme}
+                            className="absolute top-8 right-8 p-3 bg-slate-900 rounded-2xl text-slate-400 hover:text-indigo-400 transition-all btn-active z-50"
+                            aria-label="切換主題"
+                        >
+                            <Icon name={isDarkMode ? "sun" : "moon"} className="w-6 h-6" />
+                        </button>
                         <div className="text-center mb-10 space-y-4 pt-12">
                             <div className="w-24 h-24 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-[32px] flex items-center justify-center shadow-2xl mx-auto transform rotate-12">
                                 <Icon name="chart" className="text-white w-12 h-12" />
@@ -346,7 +520,7 @@
                             <div className="flex flex-col items-center">
                                 <h1 className="text-4xl font-black tracking-tight">SplitWise <span className="text-indigo-400">Pro</span></h1>
                                 <div className="mt-2 text-center">
-                                    <p className="text-slate-500 font-bold text-xs uppercase tracking-[0.2em]">P2P 即時同步</p>
+                                    <p className="text-slate-500 font-bold text-xs uppercase tracking-[0.2em]">雲端即時同步</p>
                                     <p className="text-indigo-500/60 font-black text-[10px] tracking-[0.4em] mt-1 ml-[0.4em]">BY OWEN</p>
                                 </div>
                             </div>
@@ -394,7 +568,12 @@
                                     <Icon name="copy" className="w-3 h-3 text-indigo-400" />
                                 </button>
                             </div>
-                            <button onClick={() => setView('settle')} className="p-2 bg-indigo-600 text-white rounded-xl premium-shadow btn-active"><Icon name="receipt" /></button>
+                            <div className="flex items-center gap-2">
+                                <button onClick={toggleTheme} className="p-2 bg-slate-900 rounded-xl text-slate-400 hover:text-indigo-400 transition-colors btn-active">
+                                    <Icon name={isDarkMode ? "sun" : "moon"} className="w-5 h-5" />
+                                </button>
+                                <button onClick={() => setView('settle')} className="p-2 bg-indigo-600 text-white rounded-xl premium-shadow btn-active"><Icon name="receipt" /></button>
+                            </div>
                         </header>
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-32 scroll-hide">
                             <section>
@@ -448,7 +627,7 @@
                         </Modal>
                         <Modal isOpen={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)} title="確定要刪除嗎？">
                             <div className="space-y-6">
-                                <p className="text-slate-400 font-bold">刪除後數據將透過 P2P 同步，無法復原。</p>
+                                <p className="text-slate-400 font-bold">刪除後數據將即時同步到雲端，無法復原。</p>
                                 <div className="grid grid-cols-2 gap-3">
                                     <button onClick={() => setIsDeleteConfirmOpen(false)} className="p-4 bg-slate-800 text-slate-400 rounded-2xl font-black btn-active">取消</button>
                                     <button onClick={executeDelete} className="p-4 bg-rose-600 text-white rounded-2xl font-black btn-active shadow-lg">確定刪除</button>
@@ -471,9 +650,14 @@
                 const canSave = newExp.title && newExp.amount && newExp.payerId && (newExp.splitMode === 'equal' ? newExp.participants.length > 0 : isManualValid);
                 return (
                     <div className="h-full flex flex-col bg-slate-950 text-white">
-                        <header className="shrink-0 flex items-center gap-4 p-6 bg-slate-950/50 backdrop-blur-md">
-                            <button onClick={() => setView('room')} className="p-2 bg-slate-900 rounded-xl"><Icon name="arrowLeft" /></button>
-                            <h2 className="text-2xl font-black text-white">記一筆帳</h2>
+                        <header className="shrink-0 flex items-center justify-between p-6 bg-slate-950/50 backdrop-blur-md">
+                            <div className="flex items-center gap-4">
+                                <button onClick={() => setView('room')} className="p-2 bg-slate-900 rounded-xl"><Icon name="arrowLeft" /></button>
+                                <h2 className="text-2xl font-black text-white">記一筆帳</h2>
+                            </div>
+                            <button onClick={toggleTheme} className="p-2 bg-slate-900 rounded-xl text-slate-400 hover:text-indigo-400 transition-colors btn-active">
+                                <Icon name={isDarkMode ? "sun" : "moon"} className="w-5 h-5" />
+                            </button>
                         </header>
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-32 scroll-hide">
                             <GlassCard className="space-y-4">
@@ -563,9 +747,14 @@
                                 <button onClick={() => setView('room')} className="p-2 bg-slate-900 rounded-xl"><Icon name="arrowLeft" /></button>
                                 <h2 className="text-2xl font-black text-white">結算報告</h2>
                             </div>
-                            <button onClick={handleShareSettle} className="p-3 bg-white text-slate-950 rounded-xl shadow-lg active:scale-95 transition-all">
-                                <Icon name="share" className="w-5 h-5" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button onClick={toggleTheme} className="p-2 bg-slate-900 rounded-xl text-slate-400 hover:text-indigo-400 transition-colors btn-active">
+                                    <Icon name={isDarkMode ? "sun" : "moon"} className="w-5 h-5" />
+                                </button>
+                                <button onClick={handleShareSettle} className="p-3 bg-white text-slate-950 rounded-xl shadow-lg active:scale-95 transition-all">
+                                    <Icon name="share" className="w-5 h-5" />
+                                </button>
+                            </div>
                         </header>
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 ios-inset pb-10 scroll-hide">
                             <section>

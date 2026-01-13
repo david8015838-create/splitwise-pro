@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase 連接測試</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #4F46E5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #4338CA;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+        .result.success {
+            background: #D1FAE5;
+            border: 1px solid #10B981;
+            color: #065F46;
+            display: block;
+        }
+        .result.error {
+            background: #FEE2E2;
+            border: 1px solid #EF4444;
+            color: #991B1B;
+            display: block;
+        }
+        .result.info {
+            background: #DBEAFE;
+            border: 1px solid #3B82F6;
+            color: #1E40AF;
+            display: block;
+        }
+        pre {
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .test-item {
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #ddd;
+            background: #fafafa;
+        }
+        .test-item.pass {
+            border-left-color: #10B981;
+        }
+        .test-item.fail {
+            border-left-color: #EF4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Supabase 連接測試工具</h1>
+        <p>使用此工具測試您的 Supabase 配置是否正確。</p>
+        
+        <div class="input-group">
+            <label>Supabase URL:</label>
+            <input type="text" id="supabaseUrl" placeholder="https://xxxxx.supabase.co">
+        </div>
+        
+        <div class="input-group">
+            <label>Anon Key:</label>
+            <input type="text" id="anonKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+        </div>
+        
+        <button onclick="runTests()">🚀 開始測試</button>
+        <button onclick="clearResults()">🗑️ 清除結果</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let supabase;
+
+        function showResult(type, message) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function runTests() {
+            clearResults();
+            
+            const url = document.getElementById('supabaseUrl').value.trim();
+            const key = document.getElementById('anonKey').value.trim();
+            
+            if (!url || !key) {
+                showResult('error', '❌ 請填寫 Supabase URL 和 Anon Key');
+                return;
+            }
+
+            showResult('info', '⏳ 開始測試連接...');
+
+            try {
+                // 測試 1: 創建客戶端
+                supabase = window.supabase.createClient(url, key);
+                showResult('success', `
+                    <div class="test-item pass">
+                        <strong>✅ 測試 1: 創建 Supabase 客戶端</strong><br>
+                        成功創建客戶端實例
+                    </div>
+                `);
+
+                // 測試 2: 檢查資料庫連接
+                showResult('info', '⏳ 測試資料庫連接...');
+                const { data: testData, error: testError } = await supabase
+                    .from('rooms')
+                    .select('count')
+                    .limit(1);
+
+                if (testError) {
+                    throw new Error(`資料庫連接失敗: ${testError.message}`);
+                }
+
+                showResult('success', `
+                    <div class="test-item pass">
+                        <strong>✅ 測試 2: 資料庫連接</strong><br>
+                        成功連接到 rooms 表
+                    </div>
+                `);
+
+                // 測試 3: 創建測試房間
+                showResult('info', '⏳ 測試寫入權限...');
+                const testCode = 'TEST' + Date.now();
+                const { data: insertData, error: insertError } = await supabase
+                    .from('rooms')
+                    .insert({
+                        code: testCode,
+                        name: '測試房間',
+                        data: { members: [], expenses: [] }
+                    })
+                    .select();
+
+                if (insertError) {
+                    throw new Error(`寫入失敗: ${insertError.message}`);
+                }
+
+                showResult('success', `
+                    <div class="test-item pass">
+                        <strong>✅ 測試 3: 寫入權限</strong><br>
+                        成功創建測試房間（代碼: ${testCode}）
+                    </div>
+                `);
+
+                // 測試 4: 讀取測試房間
+                showResult('info', '⏳ 測試讀取權限...');
+                const { data: readData, error: readError } = await supabase
+                    .from('rooms')
+                    .select('*')
+                    .eq('code', testCode)
+                    .single();
+
+                if (readError) {
+                    throw new Error(`讀取失敗: ${readError.message}`);
+                }
+
+                showResult('success', `
+                    <div class="test-item pass">
+                        <strong>✅ 測試 4: 讀取權限</strong><br>
+                        成功讀取測試房間<br>
+                        <pre>${JSON.stringify(readData, null, 2)}</pre>
+                    </div>
+                `);
+
+                // 測試 5: 更新測試房間
+                showResult('info', '⏳ 測試更新權限...');
+                const { error: updateError } = await supabase
+                    .from('rooms')
+                    .update({ name: '測試房間（已更新）' })
+                    .eq('code', testCode);
+
+                if (updateError) {
+                    throw new Error(`更新失敗: ${updateError.message}`);
+                }
+
+                showResult('success', `
+                    <div class="test-item pass">
+                        <strong>✅ 測試 5: 更新權限</strong><br>
+                        成功更新測試房間
+                    </div>
+                `);
+
+                // 測試 6: 刪除測試房間
+                showResult('info', '⏳ 測試刪除權限並清理...');
+                const { error: deleteError } = await supabase
+                    .from('rooms')
+                    .delete()
+                    .eq('code', testCode);
+
+                if (deleteError) {
+                    throw new Error(`刪除失敗: ${deleteError.message}`);
+                }
+
+                showResult('success', `
+                    <div class="test-item pass">
+                        <strong>✅ 測試 6: 刪除權限</strong><br>
+                        成功刪除測試房間
+                    </div>
+                `);
+
+                // 測試 7: 檢查 Realtime
+                showResult('info', '⏳ 檢查 Realtime 配置...');
+                const channel = supabase.channel('test-channel');
+                const subscribed = await new Promise((resolve) => {
+                    channel
+                        .on('postgres_changes', 
+                            { event: '*', schema: 'public', table: 'rooms' },
+                            () => {}
+                        )
+                        .subscribe((status) => {
+                            resolve(status === 'SUBSCRIBED');
+                        });
+                    
+                    setTimeout(() => resolve(false), 5000);
+                });
+
+                await supabase.removeChannel(channel);
+
+                if (subscribed) {
+                    showResult('success', `
+                        <div class="test-item pass">
+                            <strong>✅ 測試 7: Realtime 功能</strong><br>
+                            Realtime 已正確啟用
+                        </div>
+                    `);
+                } else {
+                    showResult('error', `
+                        <div class="test-item fail">
+                            <strong>⚠️ 測試 7: Realtime 功能</strong><br>
+                            Realtime 可能未啟用。請前往 Supabase Dashboard > Database > Replication 啟用 rooms 表的 Realtime。
+                        </div>
+                    `);
+                }
+
+                // 最終結果
+                showResult('success', `
+                    <h3>🎉 所有測試完成！</h3>
+                    <p>您的 Supabase 配置正確，可以開始使用應用了。</p>
+                    <p><strong>下一步：</strong></p>
+                    <ol>
+                        <li>將這些配置填入 index.html</li>
+                        <li>部署應用到線上</li>
+                        <li>設置 GitHub Actions（可選）</li>
+                    </ol>
+                `);
+
+            } catch (error) {
+                showResult('error', `
+                    <h3>❌ 測試失敗</h3>
+                    <p><strong>錯誤訊息：</strong></p>
+                    <pre>${error.message}</pre>
+                    <p><strong>可能的原因：</strong></p>
+                    <ul>
+                        <li>URL 或 Key 不正確</li>
+                        <li>尚未執行 supabase-setup.sql</li>
+                        <li>RLS 政策配置錯誤</li>
+                        <li>網路連接問題</li>
+                    </ul>
+                    <p><strong>解決方法：</strong></p>
+                    <ol>
+                        <li>檢查 URL 和 Key 是否正確</li>
+                        <li>確認已在 Supabase SQL Editor 執行 supabase-setup.sql</li>
+                        <li>查看 Supabase Dashboard 的 Table Editor 確認 rooms 表存在</li>
+                    </ol>
+                `);
+            }
+        }
+
+        // 頁面載入時嘗試從 localStorage 讀取之前的配置
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUrl = localStorage.getItem('test_supabase_url');
+            const savedKey = localStorage.getItem('test_anon_key');
+            if (savedUrl) document.getElementById('supabaseUrl').value = savedUrl;
+            if (savedKey) document.getElementById('anonKey').value = savedKey;
+        });
+
+        // 儲存配置到 localStorage
+        document.getElementById('supabaseUrl').addEventListener('change', (e) => {
+            localStorage.setItem('test_supabase_url', e.target.value);
+        });
+        document.getElementById('anonKey').addEventListener('change', (e) => {
+            localStorage.setItem('test_anon_key', e.target.value);
+        });
+    </script>
+</body>
+</html>
