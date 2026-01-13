@@ -1,0 +1,75 @@
+name: Keep Supabase Active
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping-database:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Ping Supabase Database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "🚀 Pinging Supabase to keep it active..."
+          
+          response=$(curl -s -w "\n%{http_code}" \
+            -X GET "${SUPABASE_URL}/rest/v1/rooms?select=count" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "📊 HTTP Status: $http_code"
+          echo "📦 Response: $body"
+          
+          if [ "$http_code" -eq 200 ] || [ "$http_code" -eq 206 ]; then
+            echo "✅ Successfully pinged Supabase!"
+          else
+            echo "❌ Failed to ping Supabase"
+            exit 1
+          fi
+
+      - name: Clean Old Data (30+ days)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          echo "🧹 Cleaning old data (30+ days)..."
+          
+          thirty_days_ago=$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%S.000Z 2>/dev/null || date -u -v-30d +%Y-%m-%dT%H:%M:%S.000Z)
+          
+          echo "📅 Deleting rooms older than: $thirty_days_ago"
+          
+          response=$(curl -s -w "\n%{http_code}" \
+            -X DELETE "${SUPABASE_URL}/rest/v1/rooms?updated_at=lt.${thirty_days_ago}" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            -H "Prefer: return=minimal")
+          
+          http_code=$(echo "$response" | tail -n1)
+          
+          echo "📊 HTTP Status: $http_code"
+          
+          if [ "$http_code" -eq 204 ] || [ "$http_code" -eq 200 ]; then
+            echo "✅ Successfully cleaned old data!"
+          else
+            echo "⚠️ Warning: Could not clean old data (Status: $http_code)"
+            echo "This is not critical, continuing..."
+          fi
+
+      - name: Summary
+        run: |
+          echo "🎉 Workflow completed successfully!"
+          echo "📝 Summary:"
+          echo "  - Pinged Supabase database"
+          echo "  - Cleaned data older than 30 days"
+          echo "  - Next run: Tomorrow at the same time"
