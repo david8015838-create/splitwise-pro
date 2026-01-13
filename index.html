@@ -484,6 +484,10 @@
             }, [newExp.amount, newExp.customAmounts, newExp.splitMode]);
 
             const handleShareSettle = () => {
+                // 獲取當前網站的 URL（如果已部署則使用部署後的 URL）
+                const baseUrl = window.location.origin + window.location.pathname.replace('/index.html', '');
+                const roomUrl = `${baseUrl}#${roomCode}`;
+                
                 let shareText = `💰 【${roomData.name}】 結算報告\n\n`;
                 shareText += `📊 成員總計：\n`;
                 roomData.members.forEach(m => {
@@ -498,7 +502,12 @@
                         shareText += `${t.from} ➔ ${t.to}：$${t.amount.toFixed(0)}\n`;
                     });
                 }
-                shareText += `\n🔗 房間代碼：${roomCode}`;
+                shareText += `\n━━━━━━━━━━━━━━━━\n`;
+                shareText += `🔗 查看詳細消費明細：\n`;
+                shareText += `${roomUrl}\n\n`;
+                shareText += `💡 或手動輸入房號：${roomCode}\n`;
+                shareText += `網站：${baseUrl}\n\n`;
+                shareText += `📱 SplitWise Pro - 雲端即時分帳`;
                 copyToClipboard(shareText, "結算內容已複製，可直接貼到 Line！");
             };
 
