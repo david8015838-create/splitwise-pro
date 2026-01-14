@@ -1,0 +1,11 @@
+<svg viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="180" height="180" fill="#4F46E5"/>
+<circle cx="90" cy="75" r="30" fill="white" stroke="#4F46E5" stroke-width="3"/>
+<text x="90" y="86" text-anchor="middle" fill="#4F46E5" font-size="36" font-weight="bold" font-family="Arial">$</text>
+<circle cx="38" cy="75" r="16" fill="white" stroke="#4F46E5" stroke-width="2"/>
+<circle cx="142" cy="75" r="16" fill="white" stroke="#4F46E5" stroke-width="2"/>
+<circle cx="90" cy="145" r="16" fill="white" stroke="#4F46E5" stroke-width="2"/>
+<path d="M54 75 L60 75" stroke="white" stroke-width="4"/>
+<path d="M120 75 L126 75" stroke="white" stroke-width="4"/>
+<path d="M90 105 L90 129" stroke="white" stroke-width="4"/>
+</svg>
