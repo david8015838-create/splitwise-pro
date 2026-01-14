@@ -63,6 +63,7 @@
         .btn-active:active { transform: scale(0.96); }
         .premium-shadow { box-shadow: 0 15px 30px -10px rgba(79, 70, 229, 0.4); }
         .ios-inset { padding-bottom: env(safe-area-inset-bottom); }
+        .ios-top-inset { padding-top: env(safe-area-inset-top); }
         
         .scroll-container {
             height: 100%;
@@ -527,15 +528,15 @@
             // 首頁
             if (view === 'landing') {
                 return (
-                    <div className="scroll-container bg-slate-950 text-white animate-in px-8 items-center justify-center scroll-hide relative">
+                    <div className="scroll-container bg-slate-950 text-white animate-in px-8 items-center justify-center scroll-hide relative ios-top-inset">
                         <button 
                             onClick={toggleTheme}
-                            className="absolute top-8 right-8 p-3 bg-slate-900 rounded-2xl text-slate-400 hover:text-indigo-400 transition-all btn-active z-50"
+                            className="absolute top-[calc(env(safe-area-inset-top)+2rem)] right-8 p-3 bg-slate-900 rounded-2xl text-slate-400 hover:text-indigo-400 transition-all btn-active z-50"
                             aria-label="切換主題"
                         >
                             <Icon name={isDarkMode ? "sun" : "moon"} className="w-6 h-6" />
                         </button>
-                        <div className="text-center mb-10 space-y-4 pt-12">
+                        <div className="text-center mb-10 space-y-4 pt-8">
                             <div className="w-24 h-24 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-[32px] flex items-center justify-center shadow-2xl mx-auto transform rotate-12">
                                 <Icon name="chart" className="text-white w-12 h-12" />
                             </div>
@@ -580,7 +581,7 @@
             // 房間主頁面
             if (view === 'room') {
                 return (
-                    <div className="h-full flex flex-col bg-slate-950 text-white">
+                    <div className="h-full flex flex-col bg-slate-950 text-white ios-top-inset">
                         <header className="shrink-0 bg-slate-950/50 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-white/5 z-50">
                             <button onClick={() => setView('landing')} className="p-2 bg-slate-900 rounded-xl text-slate-400"><Icon name="arrowLeft" /></button>
                             <div className="text-center px-2 flex-1 min-w-0">
@@ -671,7 +672,7 @@
                 const isManualValid = newExp.splitMode === 'exact' ? Math.abs(manualRemaining) < 0.1 : true;
                 const canSave = newExp.title && newExp.amount && newExp.payerId && (newExp.splitMode === 'equal' ? newExp.participants.length > 0 : isManualValid);
                 return (
-                    <div className="h-full flex flex-col bg-slate-950 text-white">
+                    <div className="h-full flex flex-col bg-slate-950 text-white ios-top-inset">
                         <header className="shrink-0 flex items-center justify-between p-6 bg-slate-950/50 backdrop-blur-md">
                             <div className="flex items-center gap-4">
                                 <button onClick={() => setView('room')} className="p-2 bg-slate-900 rounded-xl"><Icon name="arrowLeft" /></button>
@@ -763,7 +764,7 @@
             // 結算頁面
             if (view === 'settle') {
                 return (
-                    <div className="h-full flex flex-col bg-slate-950 text-white">
+                    <div className="h-full flex flex-col bg-slate-950 text-white ios-top-inset">
                         <header className="shrink-0 flex items-center justify-between p-6 bg-slate-950 border-b border-white/5">
                             <div className="flex items-center gap-4">
                                 <button onClick={() => setView('room')} className="p-2 bg-slate-900 rounded-xl"><Icon name="arrowLeft" /></button>
